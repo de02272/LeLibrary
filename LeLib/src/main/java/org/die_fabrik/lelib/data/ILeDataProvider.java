@@ -7,7 +7,7 @@ import android.bluetooth.BluetoothDevice;
  */
 
 public interface ILeDataProvider {
-    Class<? extends LeData>[] getDataClasses();
+    Class<? extends LeData>[] getLeDataClasses();
     
     LeData getLeData(Class<? extends LeData> dataClass, BluetoothDevice bluetoothDevice);
 }

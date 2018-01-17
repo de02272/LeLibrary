@@ -147,6 +147,12 @@ public abstract class LeServerService extends Service {
         return null;
     }
     
+    /**
+     * A Helper method to search the LeProfile for a LeCharacteristic with a given uuid
+     *
+     * @param uuid the uuid to search for
+     * @return null or an instance of LeCharacteristic
+     */
     private LeCharacteristic findLeCharacteristic(UUID uuid) {
         for (LeService leService : getLeProfile().getLeServices()) {
             for (LeCharacteristic leCharacteristic : leService.getLeCharacteristics()) {
@@ -158,6 +164,12 @@ public abstract class LeServerService extends Service {
         return null;
     }
     
+    
+    /**
+     * A Helper method to find a LeCharacteristic from LeProfile by the uuid of one of its descriptors
+     * @param uuid the uuid from the descriptor
+     * @return an instance od LeCharacteristic or null;
+     */
     private LeCharacteristic findLeCharacteristicByDescriptorUuid(UUID uuid) {
         for (LeService leService : getLeProfile().getLeServices()) {
             for (LeCharacteristic leCharacteristic : leService.getLeCharacteristics()) {
@@ -546,11 +558,21 @@ public abstract class LeServerService extends Service {
                     }
                 } else {
                     Log.e(TAG, "no LeCharacteristic found for UUID: " + characteristic.getUuid().toString());
+                    answerOffset=0;
                 }
             } else {
                 Log.e(TAG, "no session found for device: " + device);
+                answerOffset=0;
             }
+    
+            Log.v(TAG, "sending Response to the WriteRequest for device: " + device
+                    + ", requestId: " + requestId + ", status: "
+                    + LeUtil.getGattStatus(LeServerService.this, answerStatus)
+                    + ", offset: " + answerOffset + ", leValue.length: " + leValue.length);
+            LeUtil.logHexValue(leValue, TAG);
+            
             gattServer.sendResponse(device, requestId, answerStatus, answerOffset, leValue);
+    
             if (answerStatus == BluetoothGatt.GATT_SUCCESS) {
                 if (!preparedWrite) {
                     LeServerListeners.onGattWritten(leData, leSession.getDevice());
@@ -668,8 +690,13 @@ public abstract class LeServerService extends Service {
             } else {
                 Log.e(TAG, "no session found for device: " + device);
             }
-            Log.v(TAG, "send response to device: " + device + ", requestId: " + requestId + ", answerStatus: " + LeUtil.getGattStatus(LeServerService.this, answerStatus) + ", answerOffset: " + answerOffset + ", leValue.length: " + leValue.length);
+    
+            Log.v(TAG, "send response for DescriptorWriteRequest to device: " + device + ", requestId: " + requestId
+                    + ", answerStatus: " + LeUtil.getGattStatus(LeServerService.this, answerStatus)
+                    + ", answerOffset: " + answerOffset + ", leValue.length: " + leValue.length);
+            
             LeUtil.logHexValue(leValue, TAG);
+    
             gattServer.sendResponse(device, requestId, answerStatus, answerOffset, leValue);
         }
         
@@ -710,7 +737,12 @@ public abstract class LeServerService extends Service {
                 }
             } else {
                 Log.e(TAG, "no session found for device: " + device);
+                answerOffset=0;
             }
+    
+            Log.v(TAG, "send response for ExecuteWrite to device: " + device + ", requestId: " + requestId
+                    + ", answerStatus: " + LeUtil.getGattStatus(LeServerService.this, answerStatus)
+                    + ", answerOffset: " + answerOffset + ", leValue.length: " + leValue.length);
             gattServer.sendResponse(device, requestId, answerStatus, answerOffset, leValue);
         }
         
@@ -728,11 +760,12 @@ public abstract class LeServerService extends Service {
         @Override
         public void onNotificationSent(BluetoothDevice device, int status) {
             super.onNotificationSent(device, status);
-            Log.v(TAG, "onNotificationSent() device: " + device + ", status: " + LeUtil.getGattStatus(LeServerService.this, status));
+            Log.v(TAG, "onNotificationSent() for device: " + device
+                    + ", status: " + LeUtil.getGattStatus(LeServerService.this, status));
+            
             LeSession leSession = findLeSession(device);
             if (leSession != null) {
                 leSession.timeoutProlongation();
-        
             } else {
                 Log.v(TAG, "no session found for sent notification");
             }
@@ -802,7 +835,7 @@ public abstract class LeServerService extends Service {
          * adds a command to the commandQueue
          * proves whether the command can be executed immediately
          *
-         * @param queuedCommand
+         * @param queuedCommand the command to push in queue
          */
         void addCommand(Notification queuedCommand) {
             Log.v(TAG, "adding " + queuedCommand.getClass().getSimpleName() + " to the queue at position: " + queue.size());

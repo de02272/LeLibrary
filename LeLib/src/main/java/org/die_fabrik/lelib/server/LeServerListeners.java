@@ -37,7 +37,7 @@ public class LeServerListeners {
     
     public static ILeDataProvider findDataProvider(Class<? extends LeData> cls) {
         for (ILeDataProvider provider : dataProviders) {
-            for (Class<? extends LeData> dataClass : provider.getDataClasses()) {
+            for (Class<? extends LeData> dataClass : provider.getLeDataClasses()) {
                 if (dataClass.equals(cls)) {
                     return provider;
                 }

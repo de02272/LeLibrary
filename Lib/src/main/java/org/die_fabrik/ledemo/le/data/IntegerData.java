@@ -3,17 +3,21 @@ package org.die_fabrik.ledemo.le.data;
 import org.die_fabrik.lelib.data.LeData;
 
 import java.io.UnsupportedEncodingException;
+import java.nio.ByteBuffer;
 
 /**
- * Created by Michael on 12.01.2018.
+ * Created by Michael on 13.01.2018.
  */
 
-public class RemoteDeviceNameData extends LeData {
-    private String name;
+public class IntegerData extends LeData {
+    private int val;
     
-    public RemoteDeviceNameData(String name) {
-        super();
-        this.name = name;
+    public IntegerData(int val) {
+        this.val = val;
+    }
+    
+    public IntegerData(byte[] leValue) throws UnsupportedEncodingException {
+        super(leValue);
     }
     
     /**
@@ -23,7 +27,8 @@ public class RemoteDeviceNameData extends LeData {
      */
     @Override
     public void construct(byte[] leValue) throws UnsupportedEncodingException {
-        this.name=new String(leValue, CHARSET);
+        ByteBuffer bb = ByteBuffer.wrap(leValue);
+        this.val = bb.getInt();
     }
     
     /**
@@ -33,6 +38,12 @@ public class RemoteDeviceNameData extends LeData {
      */
     @Override
     public byte[] createLeValue() throws UnsupportedEncodingException {
-        return name.getBytes(CHARSET);
+        ByteBuffer bb = ByteBuffer.allocate(Integer.SIZE / Byte.SIZE);
+        bb.putInt(val);
+        return bb.array();
+    }
+    
+    public int getVal() {
+        return val;
     }
 }

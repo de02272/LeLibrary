@@ -3,7 +3,7 @@ package org.die_fabrik.ledemo.le;
 import android.bluetooth.BluetoothGattService;
 import android.content.Context;
 
-import org.die_fabrik.ledemo.le.data.RemoteDeviceNameData;
+import org.die_fabrik.ledemo.le.data.IntegerData;
 import org.die_fabrik.lelib.wrapper.ELeCharacteristicAccess;
 import org.die_fabrik.lelib.wrapper.LeCharacteristic;
 import org.die_fabrik.lelib.wrapper.LeProfile;
@@ -11,6 +11,7 @@ import org.die_fabrik.lelib.wrapper.LeService;
 
 /**
  * Created by Michael on 12.01.2018.
+ * Here you can build the services which can be used to provide them or to consume them
  */
 
 public class ProfileBuilder {
@@ -25,23 +26,19 @@ public class ProfileBuilder {
      * @return
      * @throws Exception
      */
-    public LeProfile buildProfile(Context ctx) throws Exception {
+    public LeProfile buildProfile(Context ctx) {
         LeCharacteristic c0 = LeCharacteristic.getBuilder()
-                .setName("CHAT HISTORY")
-                .setAccess(ELeCharacteristicAccess.READ)
-                .setDataClass(RemoteDeviceNameData.class)
+                .setName("INTEGER VALUE")
+                .setAccess(ELeCharacteristicAccess.BOTH)
+                .setDataClass(IntegerData.class)
+                .setNotification(true)
                 .create();
         
-        LeCharacteristic c1 = LeCharacteristic.getBuilder()
-                .setName("REMOTE DEVICE NAME CHARACTERISTIC")
-                .setAccess(ELeCharacteristicAccess.WRITE)
-                .setDataClass(RemoteDeviceNameData.class)
-                .create();
         
         LeService s0 = LeService.getBuilder()
-                .setName("CHAT SERVICE")
+                .setName("TEST SERVICE")
                 .setAdvertisingService(true)
-                .setLeCharacteristics(c0, c1)
+                .setLeCharacteristics(c0)
                 .setServiceType(BluetoothGattService.SERVICE_TYPE_PRIMARY)
                 .create();
         

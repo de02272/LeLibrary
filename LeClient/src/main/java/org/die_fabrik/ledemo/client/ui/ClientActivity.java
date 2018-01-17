@@ -16,13 +16,14 @@ import org.die_fabrik.ledemo.client.ClientService;
 import org.die_fabrik.lelib.client.LeClientService;
 import org.die_fabrik.library.R;
 
-public class ScrollingActivity extends AppCompatActivity {
+public class ClientActivity extends AppCompatActivity {
     /**
      * The logging TAG for this Object
      */
     protected final String TAG = this.getClass().getSimpleName();
     
     private LeClientService.LeClientServiceBinder binder;
+    private BleServiceConnector serviceConnection;
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,9 +40,16 @@ public class ScrollingActivity extends AppCompatActivity {
                         .setAction("Action", null).show();
             }
         });
-        BleServiceConnector serviceConnection = new BleServiceConnector();
+        serviceConnection = new BleServiceConnector();
         Intent gattServiceIntent = new Intent(this, ClientService.class);
         bindService(gattServiceIntent, serviceConnection, BIND_AUTO_CREATE);
+        
+    }
+    
+    @Override
+    protected void onDestroy() {
+        unbindService(serviceConnection);
+        super.onDestroy();
         
     }
     

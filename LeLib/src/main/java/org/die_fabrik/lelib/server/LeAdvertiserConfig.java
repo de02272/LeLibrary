@@ -25,6 +25,10 @@ public class LeAdvertiserConfig {
         this.payload = payload;
     }
     
+    public static LeAdvertiserConfigBuilder getBuilder() {
+        return new LeAdvertiserConfigBuilder();
+    }
+    
     public int getAdvertiseMode() {
         return advertiseMode;
     }

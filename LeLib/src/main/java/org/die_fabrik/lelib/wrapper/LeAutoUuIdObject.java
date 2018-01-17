@@ -9,6 +9,9 @@ import java.util.UUID;
  */
 
 public abstract class LeAutoUuIdObject extends LeObject {
+    
+    protected static final String CLIENT_CHARACTERISTIC_UUID = "00002902-0000-1000-8000-00805f9b34fb";
+    
     private final static String[] uuids = new String[]
             {"aa1ed291-8bc4-4a22-9095-a5db56fbbb9d",
                     "156d6504-6b57-4102-8a5c-a089559011e4",
@@ -108,6 +111,8 @@ public abstract class LeAutoUuIdObject extends LeObject {
                     "23b65b73-a4cf-4304-afa7-71f291150ab5",
                     "4fc82f91-85ff-48d3-8a7f-567282d044da",
                     "9dc9af33-6dfa-4f04-a477-48f44f30745b"};
+    
+    
     private static int uuidCnt = 0;
     protected final String TAG = this.getClass().getSimpleName();
     private final UUID UUID;
@@ -126,11 +131,6 @@ public abstract class LeAutoUuIdObject extends LeObject {
         
     }
     
-    public LeAutoUuIdObject(String name) {
-        super(name);
-        this.UUID = getNextUUID();
-        Log.v(TAG, "provides the LeAutoUuIdObject with the UUID: " + this.UUID.toString() + " from position: " + (getUuidCnt() - 1));
-    }
     
     public static int getIndexOfUUID(UUID UUID) {
         String s = UUID.toString();

@@ -29,6 +29,50 @@ import java.util.List;
 public class LeUtil {
     private final static int RowLength = 16;
     
+    public static void checkExistence(Object o) {
+        if (o == null) {
+            throw new IllegalArgumentException("the given Object is null)");
+        }
+    }
+    
+    public static void checkRange(int val, int min, int max) {
+        if (val < min || val > max) {
+            throw new IllegalArgumentException("the Value: " + val + " is not in the given range (Min: " + min + ", Max: " + max + ")");
+        }
+    }
+    
+    public static void checkValue(int val, int... allowedValues) {
+        StringBuilder sb = new StringBuilder();
+        
+        for (int i = 0; i < allowedValues.length; i++) {
+            if (i > 0) {
+                sb.append(", ");
+            }
+            int cmp = allowedValues[i];
+            if (val == cmp) {
+                return;
+            }
+            sb.append(i);
+        }
+        throw new IllegalArgumentException("the Value: " + val + " is not in the given int values (" + sb.toString() + ")");
+    }
+    
+    public static LeData createLeDataFromLeValue(byte[] leValue, Class<? extends LeData> cls) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
+        /*Log.v("Reflexion", "instantiating a LeData object with cls: " + cls.getSimpleName());
+        logHexValue(leValue, "Reflexion");
+        Constructor<?>[] clss = cls.getConstructors();
+        for (Constructor<?> c : clss) {
+            Log.v("Reflexion", "name: " + c.getName());
+            Type[] ts = c.getGenericParameterTypes();
+            for (Type t : ts) {
+                Log.v("Reflexion", ""+t.toString());
+            }
+        }*/
+        Constructor<? extends LeData> constructor = cls.getConstructor(byte[].class);
+        LeData a = constructor.newInstance(leValue);
+        return a;
+    }
+    
     public static String getAdvertiseFailure(Context ctx, int errorCode) {
         String msg = ctx.getString(R.string.start_error_prefix);
         switch (errorCode) {
@@ -318,6 +362,12 @@ public class LeUtil {
         
     }
     
+    public static void logLines(String[] lines, String TAG) {
+        for (String line : lines) {
+            Log.v(TAG, line);
+        }
+    }
+    
     private static final void translateItem(StringBuilder sb, int prop, int comp, String val) {
         if ((prop & comp) > 0) {
             if (sb.length() > 0) {
@@ -347,37 +397,6 @@ public class LeUtil {
             default:
                 return ctx.getString(R.string.advertise_failed_unknown);
         }
-    }
-    public static LeData createLeDataFromLeValue(byte[] leValue, Class<? extends LeData> cls) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
-        Constructor<? extends LeData> constructor = cls.getConstructor(byte[].class);
-        return constructor.newInstance(leValue);
-    }
-    
-    public static void checkExistence(Object o){
-        if (o==null){
-            throw new IllegalArgumentException("the given Object is null)");
-        }
-    }
-    public static void checkRange(int val, int min, int max) {
-        if (val < min || val > max) {
-            throw new IllegalArgumentException("the Value: " + val + " is not in the given range (Min: " + min + ", Max: " + max + ")");
-        }
-    }
-    
-    public static void checkValue(int val, int... allowedValues) {
-        StringBuilder sb = new StringBuilder();
-        
-        for (int i = 0; i < allowedValues.length; i++) {
-            if (i > 0) {
-                sb.append(", ");
-            }
-            int cmp = allowedValues[i];
-            if (val == cmp) {
-                return;
-            }
-            sb.append(i);
-        }
-        throw new IllegalArgumentException("the Value: " + val + " is not in the given int values (" + sb.toString() + ")");
     }
     
 }

@@ -41,8 +41,8 @@ public class LeProfile extends LeObject {
     }
     
     public void log(Context ctx, String tag) {
-        
-        Log.v(tag, "******************************************");
+    
+        Log.v(tag, "************************************************************************************");
         Log.v(tag, "* ProfileName: " + getName());
         Log.v(tag, "* ");
         for (UUID uuid : advertisingUuids) {
@@ -56,11 +56,11 @@ public class LeProfile extends LeObject {
         } else {
             Log.e(tag, "no services available");
         }
-        
-        Log.v(tag, "******************************************");
-        Log.v(tag, "* LeLib Demonstration application        *");
-        Log.v(tag, "* (c) 2018 by die Fabrik                 *");
-        Log.v(tag, "* contact:de02272@gmail.com              *");
-        Log.v(tag, "******************************************");
+    
+        Log.v(tag, "************************************************************************************");
+        Log.v(tag, "* LeLib Demonstration application                                                  *");
+        Log.v(tag, "* (c) 2018 by Michael Küthe, die Fabrik, Hamburg, Germany                          *");
+        Log.v(tag, "* contact:de02272@gmail.com or via +49 172 5644617                                 *");
+        Log.v(tag, "************************************************************************************");
     }
 }

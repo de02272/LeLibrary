@@ -4,6 +4,7 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.le.AdvertiseSettings;
 import android.util.Log;
 
+import org.die_fabrik.lelib.data.ILeDataProvider;
 import org.die_fabrik.lelib.data.LeData;
 
 import java.util.ArrayList;
@@ -13,7 +14,7 @@ import java.util.List;
  * Created by Michael on 12.01.2018.
  */
 
-class LeServerListeners {
+public class LeServerListeners {
     /**
      * The list of registered connectionListeners
      */
@@ -25,9 +26,25 @@ class LeServerListeners {
     private static final List<ILeGattListener> gattListeners = new ArrayList<>();
     
     /**
+     * The list of DataProviders
+     */
+    private static final List<ILeDataProvider> dataProviders = new ArrayList<>();
+    
+    /**
      * The logging TAG for this (static) Object
      */
     private static String TAG = "LeServerListeners";
+    
+    public static ILeDataProvider findDataProvider(Class<? extends LeData> cls) {
+        for (ILeDataProvider provider : dataProviders) {
+            for (Class<? extends LeData> dataClass : provider.getDataClasses()) {
+                if (dataClass.equals(cls)) {
+                    return provider;
+                }
+            }
+        }
+        return null;
+    }
     
     public static void onAdvertiserStartFailure(int errorCode) {
         List<ILeAdvertiseListener> listeners = new ArrayList<>();
@@ -107,6 +124,20 @@ class LeServerListeners {
     }
     
     /**
+     * adds a provider to the list of dataProviders
+     * does nothing if the provider was registered before
+     *
+     * @param provider the provider to add
+     */
+    public static void registerDataProvider(ILeDataProvider provider) {
+        synchronized (dataProviders) {
+            if (!dataProviders.contains(provider)) {
+                dataProviders.add(provider);
+            }
+        }
+    }
+    
+    /**
      * adds a listener to the list of advertiseListeners
      * will do nothing if already registered
      *
@@ -130,6 +161,20 @@ class LeServerListeners {
         synchronized (advertiseListeners) {
             if (!advertiseListeners.contains(listener)) {
                 advertiseListeners.add(listener);
+            }
+        }
+    }
+    
+    /**
+     * removes a provider form the list of dataProviders
+     * does nothing if the provider was not registered before
+     *
+     * @param provider the provider to remove
+     */
+    public static void unregisterDataProvider(ILeDataProvider provider) {
+        synchronized (dataProviders) {
+            if (dataProviders.contains(provider)) {
+                dataProviders.remove(provider);
             }
         }
     }

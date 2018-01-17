@@ -15,8 +15,17 @@ public class LeAdvertiserConfigBuilder {
     private byte[] payload;
     
     
-    
-    public LeAdvertiserConfig createLeAdvertiserConfig() {
+    public LeAdvertiserConfig create() {
+        LeUtil.checkValue(advertiseMode, AdvertiseSettings.ADVERTISE_MODE_BALANCED,
+                AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY,
+                AdvertiseSettings.ADVERTISE_MODE_LOW_POWER);
+        LeUtil.checkRange(payloadId, 0, Integer.MAX_VALUE);
+        LeUtil.checkRange(timeout, 0, Integer.MAX_VALUE);
+        LeUtil.checkValue(txPowerLevel, AdvertiseSettings.ADVERTISE_TX_POWER_ULTRA_LOW,
+                AdvertiseSettings.ADVERTISE_TX_POWER_MEDIUM,
+                AdvertiseSettings.ADVERTISE_TX_POWER_HIGH,
+                AdvertiseSettings.ADVERTISE_TX_POWER_LOW);
+        
         return new LeAdvertiserConfig(bluetoothName, advertiseMode, timeout, connectible, txPowerLevel, includeDeviceName, payloadId, payload);
     }
     

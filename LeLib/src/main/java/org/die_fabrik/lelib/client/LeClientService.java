@@ -46,7 +46,6 @@ import java.util.UUID;
  */
 public abstract class LeClientService extends Service {
     
-    
     /**
      * The logging TAG for this Object
      */
@@ -860,7 +859,7 @@ public abstract class LeClientService extends Service {
                     if (characteristic != null) {
                         byte[] leValue = new byte[0];
                         try {
-                            leValue = leData.getLeValue();
+                            leValue = leData.createLeValue();
                             characteristic.setValue(leValue);
                             return gatt.writeCharacteristic(characteristic);
                         } catch (UnsupportedEncodingException e) {

@@ -12,20 +12,17 @@ public abstract class LeData {
      * The Charset to use for De/Encoding Jobs
      */
     protected final static String CHARSET = "UTF-8";
-    
     /**
      * The logging TAG for this Object
      */
     protected final String TAG = this.getClass().getSimpleName();
-    
+    private byte[] leValue;
     //TODO check whether its better to handle the ecxeption here?
     public LeData(byte[] leValue) throws UnsupportedEncodingException {
+        this.leValue = leValue;
         if (leValue != null) {
             construct(leValue);
         }
-    }
-    
-    public LeData() {
     }
     
     /**
@@ -40,7 +37,15 @@ public abstract class LeData {
      *
      * @return a byte[]
      */
-    public abstract byte[] getLeValue() throws UnsupportedEncodingException;
+    public abstract byte[] createLeValue() throws UnsupportedEncodingException;
+    
+    public byte[] getLeValue() {
+        return leValue;
+    }
+    
+    public LeData() {
+        // intentionally left blank
+    }
     
     /**
      * a helper method to get a String from a ByteBuffer

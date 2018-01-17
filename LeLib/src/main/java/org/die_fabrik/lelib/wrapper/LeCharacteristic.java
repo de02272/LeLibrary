@@ -1,11 +1,14 @@
 package org.die_fabrik.lelib.wrapper;
 
 import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattDescriptor;
 import android.content.Context;
 import android.util.Log;
 
 import org.die_fabrik.lelib.LeUtil;
 import org.die_fabrik.lelib.data.LeData;
+
+import java.util.List;
 
 /**
  * Created by Michael on 11.01.2018.
@@ -14,39 +17,58 @@ import org.die_fabrik.lelib.data.LeData;
  */
 
 public class LeCharacteristic extends LeAutoUuIdObject {
+    
+    private final boolean notification;
     private final Class<? extends LeData> dataClass;
     private final ELeCharacteristicAccess access;
     private final BluetoothGattCharacteristic bluetoothGattCharacteristic;
+    private final BluetoothGattDescriptor notificationGattDescriptor;
     // will be set when this object is bound to a LeService Object
     private LeService leService;
     
-    LeCharacteristic(String name, java.util.UUID UUID, Class<? extends LeData> dataClass, ELeCharacteristicAccess access) {
-        super(name, UUID == null ? getNextUUID() : UUID);
+    LeCharacteristic(String name, java.util.UUID UUID, boolean notification, Class<? extends LeData> dataClass, ELeCharacteristicAccess access) {
+        super(name, UUID);
+        this.notification = notification;
         this.dataClass = dataClass;
         this.access = access;
         
         switch (access) {
             
             case READ:
-                bluetoothGattCharacteristic = new BluetoothGattCharacteristic(getUUID(),
-                        BluetoothGattCharacteristic.PERMISSION_READ, BluetoothGattCharacteristic.PROPERTY_READ);
+                int prop = BluetoothGattCharacteristic.PROPERTY_READ;
+                if (notification) {
+                    prop = prop | BluetoothGattCharacteristic.PROPERTY_NOTIFY;
+                }
+                bluetoothGattCharacteristic = new BluetoothGattCharacteristic(getUUID(), prop
+                        , BluetoothGattCharacteristic.PERMISSION_READ);
                 break;
             case WRITE:
-                bluetoothGattCharacteristic = new BluetoothGattCharacteristic(getUUID(),
-                        BluetoothGattCharacteristic.PERMISSION_WRITE,
-                        BluetoothGattCharacteristic.PROPERTY_WRITE);
-                
+                prop = BluetoothGattCharacteristic.PROPERTY_WRITE;
+                if (notification) {
+                    prop = prop | BluetoothGattCharacteristic.PROPERTY_NOTIFY;
+                }
+                bluetoothGattCharacteristic = new BluetoothGattCharacteristic(getUUID(), prop
+                        , BluetoothGattCharacteristic.PERMISSION_WRITE);
                 break;
             case BOTH:
-                bluetoothGattCharacteristic = new BluetoothGattCharacteristic(getUUID(),
-                        BluetoothGattCharacteristic.PERMISSION_READ | BluetoothGattCharacteristic.PERMISSION_WRITE,
-                        BluetoothGattCharacteristic.PROPERTY_READ | BluetoothGattCharacteristic.PROPERTY_WRITE);
+                prop = BluetoothGattCharacteristic.PROPERTY_WRITE | BluetoothGattCharacteristic.PROPERTY_READ;
+                if (notification) {
+                    prop = prop | BluetoothGattCharacteristic.PROPERTY_NOTIFY;
+                }
+                bluetoothGattCharacteristic = new BluetoothGattCharacteristic(getUUID()
+                        , prop
+                        , BluetoothGattCharacteristic.PERMISSION_READ | BluetoothGattCharacteristic.PERMISSION_WRITE);
                 break;
             default:
                 bluetoothGattCharacteristic = null;
         }
         
-        
+        if (notification && bluetoothGattCharacteristic != null) {
+            notificationGattDescriptor = new BluetoothGattDescriptor(java.util.UUID.fromString(CLIENT_CHARACTERISTIC_UUID), BluetoothGattDescriptor.PERMISSION_WRITE);
+            bluetoothGattCharacteristic.addDescriptor(notificationGattDescriptor);
+        } else {
+            notificationGattDescriptor = null;
+        }
     }
     
     public static LeCharacteristicBuilder getBuilder() {
@@ -73,6 +95,10 @@ public class LeCharacteristic extends LeAutoUuIdObject {
         this.leService = leService;
     }
     
+    public BluetoothGattDescriptor getNotificationGattDescriptor() {
+        return notificationGattDescriptor;
+    }
+    
     public void log(Context ctx, String tag) {
         Log.v(tag, "*   CharacteristicName: " + getName());
         Log.v(tag, "*   UUID: " + getUUID());
@@ -80,5 +106,15 @@ public class LeCharacteristic extends LeAutoUuIdObject {
         Log.v(tag, "*   access: " + access.name());
         Log.v(tag, "*   properties: " + LeUtil.getProperties(ctx, bluetoothGattCharacteristic.getProperties()));
         Log.v(tag, "*   permissions: " + LeUtil.getCharacteristicPermissions(ctx, bluetoothGattCharacteristic.getPermissions()));
+        Log.v(tag, "*   notification: " + notification);
+        List<BluetoothGattDescriptor> notificationDescriptors = bluetoothGattCharacteristic.getDescriptors();
+        if (notificationDescriptors != null && notificationDescriptors.size() > 0) {
+            for (BluetoothGattDescriptor descriptor : notificationDescriptors) {
+                Log.v(tag, "*    Notificationddescriptor: " + descriptor.getUuid());
+                Log.v(tag, "*    permissions: " + LeUtil.getCharacteristicPermissions(ctx, descriptor.getPermissions()));
+            }
+        } else {
+            Log.i(TAG, "no descriptor");
+        }
     }
 }

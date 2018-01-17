@@ -18,7 +18,7 @@ public class LeService extends LeAutoUuIdObject {
     private LeProfile leProfile;
     
     public LeService(String name, java.util.UUID UUID, LeCharacteristic[] leCharacteristics, int serviceType, boolean advertisingService) {
-        super(name, UUID == null ? getNextUUID() : UUID);
+        super(name, UUID);
         this.leCharacteristics = leCharacteristics;
         this.serviceType = serviceType;
         this.advertisingService = advertisingService;

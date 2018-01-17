@@ -6,17 +6,18 @@ import org.die_fabrik.lelib.data.LeData;
 import java.util.UUID;
 
 public class LeCharacteristicBuilder {
+    private boolean notification = false;
     private String name;
     private UUID uuid;
     private Class<? extends LeData> dataClass;
     private ELeCharacteristicAccess access;
-    
+
     public LeCharacteristic create() {
         LeUtil.checkExistence(name);
         LeUtil.checkExistence(access);
         LeUtil.checkExistence(dataClass);
-        
-        return new LeCharacteristic(name, uuid, dataClass, access);
+    
+        return new LeCharacteristic(name, uuid, notification, dataClass, access);
     }
     
     public LeCharacteristicBuilder setAccess(ELeCharacteristicAccess access) {
@@ -37,6 +38,11 @@ public class LeCharacteristicBuilder {
         LeUtil.checkExistence(name);
         
         this.name = name;
+        return this;
+    }
+    
+    public LeCharacteristicBuilder setNotification(boolean notification) {
+        this.notification = notification;
         return this;
     }
     

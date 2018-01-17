@@ -43,7 +43,7 @@ public class ServerActivity extends AppCompatActivity implements ILeDataProvider
     private GattListener gattListener;
     
     @Override
-    public Class<? extends LeData>[] getDataClasses() {
+    public Class<? extends LeData>[] getLeDataClasses() {
         return new Class[]{IntegerData.class};
     }
     
@@ -73,8 +73,11 @@ public class ServerActivity extends AppCompatActivity implements ILeDataProvider
                         .setAction("Action", null).show();
             }
         });
+    
         LeServerListeners.registerDataProvider(this);
+    
         serviceConnection = new BleServiceConnector();
+    
         Intent gattServiceIntent = new Intent(this, ServerService.class);
         bindService(gattServiceIntent, serviceConnection, BIND_AUTO_CREATE);
         gattListener = new GattListener();

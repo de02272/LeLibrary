@@ -21,7 +21,7 @@ public abstract class LeData {
     public LeData(byte[] leValue) throws UnsupportedEncodingException {
         this.leValue = leValue;
         if (leValue != null) {
-            construct(leValue);
+            constructLeData(leValue);
         }
     }
     
@@ -30,7 +30,7 @@ public abstract class LeData {
      *
      * @param leValue the byte[] to convert
      */
-    public abstract void construct(byte[] leValue) throws UnsupportedEncodingException;
+    public abstract void constructLeData(byte[] leValue) throws UnsupportedEncodingException;
     
     /**
      * converts this LeData Class into a byte[]

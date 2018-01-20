@@ -1,5 +1,6 @@
 package org.die_fabrik.lelib.client;
 
+import android.bluetooth.le.ScanResult;
 import android.util.Log;
 
 import org.die_fabrik.lelib.data.LeData;
@@ -43,7 +44,7 @@ public class LeClientListeners {
         }
     }
     
-    public static void onCommunicationNotificationReceived(LeData leData) {
+    static void onCommunicationNotificationReceived(LeData leData) {
         List<ILeCommunicationListener> listeners = new ArrayList<>();
         synchronized (connectionListeners) {
             listeners.addAll(communicationListeners);
@@ -54,7 +55,7 @@ public class LeClientListeners {
         }
     }
     
-    public static void onCommunicationRead(LeData leData) {
+    static void onCommunicationRead(LeData leData) {
         List<ILeCommunicationListener> listeners = new ArrayList<>();
         synchronized (connectionListeners) {
             listeners.addAll(communicationListeners);
@@ -65,7 +66,7 @@ public class LeClientListeners {
         }
     }
     
-    public static void onCommunicationWrite(LeData leData) {
+    static void onCommunicationWrite(LeData leData) {
         List<ILeCommunicationListener> listeners = new ArrayList<>();
         synchronized (connectionListeners) {
             listeners.addAll(communicationListeners);
@@ -126,7 +127,16 @@ public class LeClientListeners {
         }
     }
     
-    
+    public static void onScanBatchResults(List<ScanResult> results) {
+        List<ILeScanListener> listeners = new ArrayList<>();
+        synchronized (scanListeners) {
+            listeners.addAll(scanListeners);
+        }
+        Log.v(TAG, "calling onScanBatchResults() on " + listeners.size() + " listeners");
+        for (ILeScanListener listener : listeners) {
+            listener.onScanBatchResults(results);
+        }
+    }
     
     static void onScanFailed(int errorCode) {
         List<ILeScanListener> listeners = new ArrayList<>();
@@ -136,6 +146,17 @@ public class LeClientListeners {
         Log.v(TAG, "calling onScanFailed() on " + listeners.size() + " listeners");
         for (ILeScanListener listener : listeners) {
             listener.onScanFailed(errorCode);
+        }
+    }
+    
+    public static void onScanResult(int callbackType, ScanResult result) {
+        List<ILeScanListener> listeners = new ArrayList<>();
+        synchronized (scanListeners) {
+            listeners.addAll(scanListeners);
+        }
+        Log.v(TAG, "calling onScanResult() on " + listeners.size() + " listeners");
+        for (ILeScanListener listener : listeners) {
+            listener.onScanResult(callbackType, result);
         }
     }
     
@@ -150,14 +171,14 @@ public class LeClientListeners {
         }
     }
     
-    static void onScanStopped() {
+    static void onScanStopped(List<ScanResult> scanResults) {
         List<ILeScanListener> listeners = new ArrayList<>();
         synchronized (scanListeners) {
             listeners.addAll(scanListeners);
         }
         Log.v(TAG, "calling onScanStopped() on " + listeners.size() + " listeners");
         for (ILeScanListener listener : listeners) {
-            listener.onScanStopped();
+            listener.onScanStopped(scanResults);
         }
     }
     
@@ -186,6 +207,11 @@ public class LeClientListeners {
         }
     }
     
+    public static void clearAllIsteners() {
+        connectionListeners.clear();
+        scanListeners.clear();
+        connectionListeners.clear();
+    }
     /**
      * adds a listener to the list of scanListeners
      * will do nothing if already registered

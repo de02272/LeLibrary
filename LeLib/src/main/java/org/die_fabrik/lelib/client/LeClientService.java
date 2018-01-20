@@ -51,63 +51,56 @@ public abstract class LeClientService extends Service {
      */
     protected final String TAG = this.getClass().getSimpleName();
     /**
+     * The list of the actual scan results. will be cleared after each start of the scanner
+     */
+    private final List<ScanResult> scanResults = new ArrayList<>();
+    /**
      * The local copy of the Binder instance, created by onBind(), nulled by onUnbind()
      * You can check whether this service is bound to anyone by checking this Object for null
      */
     private LeClientServiceBinder leClientServiceBinder;
-    
     /**
      * The system wide bluetoothManager Object (created during onCreate())
      */
     private BluetoothManager bluetoothManager;
-    
     /**
      * The BluetoothAdapter (created during onCreate())
      */
     private BluetoothAdapter bluetoothAdapter;
-    
     /**
      * The Scanner for active advertisers (created during startScan, nulled by StopScan or ScanCallback)
      */
     private BluetoothLeScanner leScanner;
-    
     /**
      * the instance of the QueueManager will be created during onCreate()
      * The encapsulated Thread needs an interrupt during onDestroy();
      */
     private QueueManager queueManager;
-    
     /**
      * The gatt gateway Object. Will be created during connect and destroyed during disconnect
      * (or any other method that cancels the connection)
      */
     private BluetoothGatt gatt;
-    
     /**
      * The callback Object for an established connection
      */
     private LeGattCallback leGattCallback;
-    
     /**
      * the callback Object for the scan process
      */
     private LeScanCallback leScanCallback;
-    
     /**
      * the Timeout Object to connect a device. will be engaged during connect(BluetoothDevice);
      */
     private LeConnectionTimeout leConnectionTimeout;
-    
     /**
      * a Timer instance to start TimerTasks
      */
     private Timer timer;
-    
     /**
      * list of discovered Services from the server side(set by onServicesDiscovered, cleared by disconnect)
      */
     private List<BluetoothGattService> discoveredServices;
-    
     /**
      * The timeout Object to stop the Scan Process. will be created during StartScan();
      */
@@ -135,17 +128,17 @@ public abstract class LeClientService extends Service {
     }
     
     /**
-     * Helper method to find a LeCharacteristic by its dataClass from the LeProfile()
+     * A Helper method to find a GattDescriptor by the uuid
      *
-     * @param dataClass the dataClass to look for
-     * @return the LeCharacteristic with the given DataClass;
+     * @param uuid the uuid from the descriptor
+     * @return an instance od LeCharacteristic or null;
      */
-    private LeCharacteristic findLeCharacteristic(Class<? extends LeData> dataClass) {
-        LeProfile leProfile = getLeProfile();
-        for (LeService leService : leProfile.getLeServices()) {
-            for (LeCharacteristic leCharacteristic : leService.getLeCharacteristics()) {
-                if (leCharacteristic.getDataClass().equals(dataClass)) {
-                    return leCharacteristic;
+    private BluetoothGattDescriptor findDescriptorByUuid(UUID uuid) {
+        for (BluetoothGattService service : gatt.getServices()) {
+            for (BluetoothGattCharacteristic characteristic : service.getCharacteristics()) {
+                BluetoothGattDescriptor descriptor = characteristic.getDescriptor(uuid);
+                if (descriptor != null) {
+                    return descriptor;
                 }
             }
         }
@@ -163,6 +156,24 @@ public abstract class LeClientService extends Service {
         for (LeService leService : leProfile.getLeServices()) {
             for (LeCharacteristic leCharacteristic : leService.getLeCharacteristics()) {
                 if (leCharacteristic.getUUID().equals(uuId)) {
+                    return leCharacteristic;
+                }
+            }
+        }
+        return null;
+    }
+    
+    /**
+     * Helper method to find a LeCharacteristic by its dataClass from the LeProfile()
+     *
+     * @param dataClass the dataClass to look for
+     * @return the LeCharacteristic with the given DataClass;
+     */
+    private LeCharacteristic findLeCharacteristic(Class<? extends LeData> dataClass) {
+        LeProfile leProfile = getLeProfile();
+        for (LeService leService : leProfile.getLeServices()) {
+            for (LeCharacteristic leCharacteristic : leService.getLeCharacteristics()) {
+                if (leCharacteristic.getDataClass().equals(dataClass)) {
                     return leCharacteristic;
                 }
             }
@@ -237,10 +248,10 @@ public abstract class LeClientService extends Service {
     @Override
     public boolean onUnbind(Intent intent) {
         Log.v(TAG, "onUnbind()");
+        leClientServiceBinder.stopScan(); // stops scan
         leClientServiceBinder = null;
         return false;
     }
-    
     
     /**
      * This is the class which instance will be given to the UI via onBind();
@@ -250,6 +261,19 @@ public abstract class LeClientService extends Service {
          * The logging TAG for this Object
          */
         private final String TAG = this.getClass().getSimpleName();
+    
+        /**
+         * @param deviceAddress the max address
+         * @param timeout       the timeout to establish this connection
+         * @return true when the request to connect was queued successfully
+         */
+        public boolean connect(String deviceAddress, long timeout) {
+            BluetoothDevice device = bluetoothAdapter.getRemoteDevice(deviceAddress);
+            if (device != null) {
+                return connect(device, timeout);
+            }
+            return false;
+        }
         
         /**
          * To connect this service with a dedicated server (Parameters will follow)
@@ -260,7 +284,7 @@ public abstract class LeClientService extends Service {
             leConnectionTimeout = new LeConnectionTimeout();
             timer.schedule(leConnectionTimeout, timeout);
             gatt = device.connectGatt(LeClientService.this, false, leGattCallback);
-            return false;
+            return gatt != null;
         }
         
         /**
@@ -292,24 +316,44 @@ public abstract class LeClientService extends Service {
          * @param dataClass the dataClass to receive notifications
          * @param enable    true - request to enable, false request to disable
          */
-        public void setNotification(Class<? extends LeData> dataClass, boolean enable, int identifier) {
-            if (enable) {
-                QueuedEnableNotification queuedEnableNotification = new QueuedEnableNotification(dataClass, identifier);
-                queueManager.addCommand(queuedEnableNotification);
+        public boolean setNotification(Class<? extends LeData> dataClass, boolean enable, int identifier) {
+            LeCharacteristic leCharacteristic = findLeCharacteristic(dataClass);
+            if (leCharacteristic != null) {
+                if (leCharacteristic.getNotificationGattDescriptor() != null) {
+                    UUID notificationDescriptorUuid = leCharacteristic.getNotificationGattDescriptor().getUuid();
+            
+                    if (enable) {
+                        QueuedEnableNotification queuedEnableNotification = new QueuedEnableNotification(dataClass, identifier);
+                        queueManager.addCommand(queuedEnableNotification);
+                    } else {
+                        QueuedDisableNotification queuedDisableNotification = new QueuedDisableNotification(dataClass, identifier);
+                        queueManager.addCommand(queuedDisableNotification);
+                    }
+                    return true;
+                } else {
+                    Log.e(TAG, "The LeCharacteristic: " + leCharacteristic.getName() + " does not support notifications");
+                }
             } else {
-                QueuedDisableNotification queuedDisableNotification = new QueuedDisableNotification(dataClass, identifier);
-                queueManager.addCommand(queuedDisableNotification);
+                Log.e(TAG, "can not find a LeCharacteristic with dataClass: " + dataClass.getSimpleName());
             }
+            return false;
         }
         
         /**
-         * starts the scanner for foreign devices
-         *
+         * @param reportDelay         Delay of report in milliseconds. Set to 0 to be notified of
+         *                            results immediately. Values &gt; 0 causes the scan results to be queued up and
+         *                            delivered after the requested delay or when the internal buffers fill up.
+         * @param scanMode            he scan mode can be one of {@link ScanSettings#SCAN_MODE_LOW_POWER},
+         *                            {@link ScanSettings#SCAN_MODE_BALANCED} or
+         *                            {@link ScanSettings#SCAN_MODE_LOW_LATENCY}.
+         * @param timeout             the ttimeout for find new devices
+         * @param onlyProfileServices when true only device which support the service from LeProfile will be found
          * @return whether the scan process was successfully initiated
          */
-        public boolean startScan(int reportDelay, int scanMode, long timeout) {
+        public boolean startScan(int reportDelay, int scanMode, long timeout, boolean onlyProfileServices) {
             Log.v(TAG, "startScan(reportDelay: " + reportDelay + ", scanMode: "
-                    + LeUtil.getScanMode(LeClientService.this, scanMode) + ", timeout: " + timeout);
+                    + LeUtil.getScanMode(LeClientService.this, scanMode) + ", timeout: " + timeout
+                    + ", scan: " + (onlyProfileServices ? "only know advertising uuids" : "all advertiser"));
             if (bluetoothAdapter != null) {
                 // creates a scanner
                 if (leScanner == null) {
@@ -323,17 +367,22 @@ public abstract class LeClientService extends Service {
                 
                 // build  a filter
                 List<ScanFilter> filters = new ArrayList<>();
-                ScanFilter.Builder filterBuilder = new ScanFilter.Builder();
-                UUID[] uuids = getLeProfile().getAdvertisingUuids();
-                for (UUID service : uuids) {
-                    filterBuilder.setServiceUuid(new ParcelUuid(service));
-                    filters.add(filterBuilder.build());
+                if (onlyProfileServices) {
+                    ScanFilter.Builder filterBuilder = new ScanFilter.Builder();
+                    UUID[] uuids = getLeProfile().getAdvertisingUuids();
+                    for (UUID service : uuids) {
+                        Log.v(TAG, "adding filter for : " + service.toString());
+                        filterBuilder.setServiceUuid(new ParcelUuid(service));
+                        filters.add(filterBuilder.build());
+                    }
                 }
                 
                 if (timeout > 0) {
                     leScanTimeout = new LeScanTimeout();
                     timer.schedule(leScanTimeout, timeout);
                 }
+    
+                scanResults.clear();
                 leScanner.startScan(filters, settingsBuilder.build(), leScanCallback);
                 LeClientListeners.onScanStarted(timeout);
                 return true;
@@ -359,7 +408,7 @@ public abstract class LeClientService extends Service {
             } else {
                 Log.wtf(TAG, "How could this happen");
             }
-            LeClientListeners.onScanStopped();
+            LeClientListeners.onScanStopped(scanResults);
         }
         
         /**
@@ -391,6 +440,12 @@ public abstract class LeClientService extends Service {
         @Override
         public void onBatchScanResults(List<ScanResult> results) {
             super.onBatchScanResults(results);
+            for (ScanResult scanResult : results) {
+                if (!scanResults.contains(scanResult)) {
+                    scanResults.add(scanResult);
+                }
+            }
+            LeClientListeners.onScanBatchResults(results);
         }
         
         /**
@@ -419,6 +474,10 @@ public abstract class LeClientService extends Service {
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
             super.onScanResult(callbackType, result);
+            if (!scanResults.contains(result)) {
+                scanResults.add(result);
+            }
+            LeClientListeners.onScanResult(callbackType, result);
         }
     }
     
@@ -432,11 +491,11 @@ public abstract class LeClientService extends Service {
         protected final String TAG = this.getClass().getSimpleName();
         
         /**
-         * A helper method to construct the LeDat Class from a received byte[]
+         * A helper method to constructLeData the LeDat Class from a received byte[]
          * hopefully the usage of reflexion is ok
          * used from onCharacteristicChanged & onCharacteristicRead
          *
-         * @param leValue The byte[9 which is used to construct the leData Object
+         * @param leValue The byte[9 which is used to constructLeData the leData Object
          * @param cls     The class of the designated LeData Object
          * @return an instantiated LeData Object
          * @throws NoSuchMethodException
@@ -739,7 +798,9 @@ public abstract class LeClientService extends Service {
          * threats the Thread to prove whether he could execute the next Commands
          */
         private void wakeUp() {
-            lock.notify();
+            synchronized (lock) {
+                lock.notify();
+            }
         }
         
         private class QueueManagerThread extends Thread {
@@ -763,8 +824,8 @@ public abstract class LeClientService extends Service {
             public void run() {
                 Log.v(TAG, "entering the loop");
                 while (!isInterrupted()) {
-                    
-                    if (lastCommand == null) {
+    
+                    if (lastCommand == null && queue.size() > 0) {
                         synchronized (queue) {
                             lastCommand = queue.remove(0); // getting the oldest Object
                         }
@@ -889,7 +950,28 @@ public abstract class LeClientService extends Service {
         
         @Override
         boolean execute(BluetoothGatt gatt) {
-            return false;//gatt.writeDescriptor();
+            if (gatt != null) {
+                LeCharacteristic leCharacteristic = findLeCharacteristic(dataClass);
+                if (leCharacteristic != null) {
+            
+                    BluetoothGattCharacteristic characteristic = findCharacteristic(leCharacteristic.getUUID());
+                    if (characteristic != null) {
+                        UUID descriptorUuid = leCharacteristic.getNotificationGattDescriptor().getUuid();
+                        BluetoothGattDescriptor descriptor = findDescriptorByUuid(descriptorUuid);
+                        descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+                        gatt.setCharacteristicNotification(characteristic, true);
+                        return gatt.writeDescriptor(descriptor);
+                
+                    } else {
+                        Log.e(TAG, "can not find a Characteristic with UUID: " + leCharacteristic.getUUID().toString());
+                    }
+                } else {
+                    Log.e(TAG, "can not find a LeCharacteristic with dataClass: " + dataClass.getSimpleName());
+                }
+            } else {
+                Log.e(TAG, "gatt==null");
+            }
+            return false;
         }
     }
     
@@ -903,7 +985,28 @@ public abstract class LeClientService extends Service {
         
         @Override
         boolean execute(BluetoothGatt gatt) {
-            return false;//gatt.writeDescriptor();
+            if (gatt != null) {
+                LeCharacteristic leCharacteristic = findLeCharacteristic(dataClass);
+                if (leCharacteristic != null) {
+            
+                    BluetoothGattCharacteristic characteristic = findCharacteristic(leCharacteristic.getUUID());
+                    if (characteristic != null) {
+                        UUID descriptorUuid = leCharacteristic.getNotificationGattDescriptor().getUuid();
+                        BluetoothGattDescriptor descriptor = findDescriptorByUuid(descriptorUuid);
+                        descriptor.setValue(BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE);
+                        gatt.setCharacteristicNotification(characteristic, false);
+                        return gatt.writeDescriptor(descriptor);
+                
+                    } else {
+                        Log.e(TAG, "can not find a Characteristic with UUID: " + leCharacteristic.getUUID().toString());
+                    }
+                } else {
+                    Log.e(TAG, "can not find a LeCharacteristic with dataClass: " + dataClass.getSimpleName());
+                }
+            } else {
+                Log.e(TAG, "gatt==null");
+            }
+            return false;
         }
     }
     

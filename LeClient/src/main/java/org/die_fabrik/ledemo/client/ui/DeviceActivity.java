@@ -26,6 +26,8 @@ public class DeviceActivity extends AppCompatActivity {
     private ServiceConnection serviceConnection;
     private SeekBar sb;
     private TextView tv;
+    private ConnectionListener connectionListener;
+    private CommunicationListener communicationListener;
     
     private void connect() {
         binder.connect(deviceAddress, 5000);
@@ -34,6 +36,9 @@ public class DeviceActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        LeClientListeners.unregisterListener(connectionListener);
+        LeClientListeners.unregisterListener(communicationListener);
+        
         unbindService(serviceConnection);
     }
     
@@ -49,8 +54,10 @@ public class DeviceActivity extends AppCompatActivity {
         serviceConnection = new ServiceConnection();
         Intent intent = new Intent(this, ClientService.class);
         bindService(intent, serviceConnection, BIND_AUTO_CREATE);
-        LeClientListeners.registerListener(new ConnectionListener());
-        LeClientListeners.registerListener(new CommunicationListener());
+        connectionListener = new ConnectionListener();
+        LeClientListeners.registerListener(connectionListener);
+        communicationListener = new CommunicationListener();
+        LeClientListeners.registerListener(connectionListener);
     }
     
     private class ServiceConnection implements android.content.ServiceConnection {

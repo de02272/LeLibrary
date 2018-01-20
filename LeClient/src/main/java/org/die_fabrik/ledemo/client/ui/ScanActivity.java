@@ -6,6 +6,7 @@ import android.bluetooth.le.ScanSettings;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -123,6 +124,7 @@ public class ScanActivity extends AppCompatActivity {
                     bindService(serviceIntent, serviceConnection, BIND_AUTO_CREATE);
                 } else {
                     Log.e(TAG, "permission not granted");
+                    this.finish();
                 }
                 break;
         }
@@ -130,6 +132,7 @@ public class ScanActivity extends AppCompatActivity {
     
     @Override
     protected void onDestroy() {
+        Log.v(TAG, "onDestroy()");
         super.onDestroy();
         LeClientListeners.unregisterListener(scanListener);
         unbindService(serviceConnection);

@@ -210,6 +210,7 @@ public abstract class LeClientService extends Service {
      */
     @Override
     public void onCreate() {
+        Log.v(TAG, "onCreate()");
         super.onCreate();
         bluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
         bluetoothAdapter = bluetoothManager.getAdapter();
@@ -321,7 +322,7 @@ public abstract class LeClientService extends Service {
             if (leCharacteristic != null) {
                 if (leCharacteristic.getNotificationGattDescriptor() != null) {
                     UUID notificationDescriptorUuid = leCharacteristic.getNotificationGattDescriptor().getUuid();
-            
+    
                     if (enable) {
                         QueuedEnableNotification queuedEnableNotification = new QueuedEnableNotification(dataClass, identifier);
                         queueManager.addCommand(queuedEnableNotification);
@@ -353,7 +354,7 @@ public abstract class LeClientService extends Service {
         public boolean startScan(int reportDelay, int scanMode, long timeout, boolean onlyProfileServices) {
             Log.v(TAG, "startScan(reportDelay: " + reportDelay + ", scanMode: "
                     + LeUtil.getScanMode(LeClientService.this, scanMode) + ", timeout: " + timeout
-                    + ", scan: " + (onlyProfileServices ? "only know advertising uuids" : "all advertiser"));
+                    + ", scan: " + (onlyProfileServices ? "only know advertising uuids" : "all advertiser") + ")");
             if (bluetoothAdapter != null) {
                 // creates a scanner
                 if (leScanner == null) {
@@ -404,6 +405,9 @@ public abstract class LeClientService extends Service {
                 leScanTimeout.cancel(); // clear the timeout
             }
             if (leScanner != null && leScanCallback != null) {
+    
+                leScanner.flushPendingScanResults(leScanCallback);
+                
                 leScanner.stopScan(leScanCallback);
             } else {
                 Log.wtf(TAG, "How could this happen");
@@ -474,6 +478,7 @@ public abstract class LeClientService extends Service {
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
             super.onScanResult(callbackType, result);
+            Log.v(TAG, "onScanResult: " + result.getDevice());
             if (!scanResults.contains(result)) {
                 scanResults.add(result);
             }
@@ -836,7 +841,8 @@ public abstract class LeClientService extends Service {
                         try {
                             lock.wait();
                         } catch (InterruptedException e) {
-                            Log.e(TAG, "expected exception", e);
+                            //Log.e(TAG, "expected exception", e);
+                            Log.w(TAG, "interrupted QueueManagerThread");
                         }
                     }
                 }
@@ -953,7 +959,7 @@ public abstract class LeClientService extends Service {
             if (gatt != null) {
                 LeCharacteristic leCharacteristic = findLeCharacteristic(dataClass);
                 if (leCharacteristic != null) {
-            
+    
                     BluetoothGattCharacteristic characteristic = findCharacteristic(leCharacteristic.getUUID());
                     if (characteristic != null) {
                         UUID descriptorUuid = leCharacteristic.getNotificationGattDescriptor().getUuid();
@@ -961,7 +967,7 @@ public abstract class LeClientService extends Service {
                         descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
                         gatt.setCharacteristicNotification(characteristic, true);
                         return gatt.writeDescriptor(descriptor);
-                
+    
                     } else {
                         Log.e(TAG, "can not find a Characteristic with UUID: " + leCharacteristic.getUUID().toString());
                     }
@@ -988,7 +994,7 @@ public abstract class LeClientService extends Service {
             if (gatt != null) {
                 LeCharacteristic leCharacteristic = findLeCharacteristic(dataClass);
                 if (leCharacteristic != null) {
-            
+    
                     BluetoothGattCharacteristic characteristic = findCharacteristic(leCharacteristic.getUUID());
                     if (characteristic != null) {
                         UUID descriptorUuid = leCharacteristic.getNotificationGattDescriptor().getUuid();
@@ -996,7 +1002,7 @@ public abstract class LeClientService extends Service {
                         descriptor.setValue(BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE);
                         gatt.setCharacteristicNotification(characteristic, false);
                         return gatt.writeDescriptor(descriptor);
-                
+    
                     } else {
                         Log.e(TAG, "can not find a Characteristic with UUID: " + leCharacteristic.getUUID().toString());
                     }

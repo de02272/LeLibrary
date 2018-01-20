@@ -22,7 +22,7 @@ public class RemoteDeviceNameData extends LeData {
      * @param leValue the byte[] to convert
      */
     @Override
-    public void construct(byte[] leValue) throws UnsupportedEncodingException {
+    public void constructLeData(byte[] leValue) throws UnsupportedEncodingException {
         this.name=new String(leValue, CHARSET);
     }
     

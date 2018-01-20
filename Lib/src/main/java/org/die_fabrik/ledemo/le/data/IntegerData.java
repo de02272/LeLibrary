@@ -26,7 +26,7 @@ public class IntegerData extends LeData {
      * @param leValue the byte[] to convert
      */
     @Override
-    public void construct(byte[] leValue) throws UnsupportedEncodingException {
+    public void constructLeData(byte[] leValue) throws UnsupportedEncodingException {
         ByteBuffer bb = ByteBuffer.wrap(leValue);
         this.val = bb.getInt();
     }

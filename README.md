@@ -4,8 +4,10 @@ a client server approach to make it more easy to manage a simple BLE Connection 
 The directory LeClient, LeServer and Lib are for evaluation reasons only
 The core functionality is based in the directory LeLib.
 
-Android >= API 22! This is due that the Ble support in previous version is neither good nor stable. This is not really an android issue,
-cause many of the older bluetooth hardware chips does not support Ble correctly.
+Android >= API 22! This is due that the Ble support in previous version is neither good nor stable. 
+This is not really an android issue, cause many of the older bluetooth hardware chips does not 
+support Ble correctly.
+
 The LeLib is capable working on on a headless android Things device (tested on Raspberry Pi3).
 
 Use case:
@@ -27,6 +29,7 @@ To exchange data between Server & client you can implement subClasses of LeData.
 void constructLeData(byte[] leValue) to construct the Object from a byte[] and 
 byte[] createLeValue() to retrieve the byte[] from a LeData Object. 
 These LeData classes should also be positioned in the Lib Module - to allow both modules (server & client) to access these classes.
+   
 
 To control the behaviour of the services, both (the LeServerService & the LeClientService) provides 
 a binder Object. Your Ui should bind these services and use the binder to control the behaviour of the service.

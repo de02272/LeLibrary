@@ -1,5 +1,4 @@
 <resources>
     <string name="app_name">LeServer</string>
-    <string name="action_clear_notification">Clear notifications</string>
     <string name="action_start_periodic_notifications">Start periodic notifications</string>
 </resources>

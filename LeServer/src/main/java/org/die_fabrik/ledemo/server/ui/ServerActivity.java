@@ -113,10 +113,8 @@ public class ServerActivity extends AppCompatActivity implements ILeDataProvider
         // as you specify a parent activity in AndroidManifest.xml.
         int id = item.getItemId();
         switch (id) {
-            case R.id.action_clear_notifications:
-                binder.clearNotifications();
-                return true;
-        
+    
+    
             case R.id.action_start_periodic_notifications:
                 if (task == null) {
                     Log.v(TAG, "start periodic");
@@ -128,6 +126,7 @@ public class ServerActivity extends AppCompatActivity implements ILeDataProvider
                     timer.purge();
                     task = null;
                 }
+                return true;
         
             default:
                 return super.onOptionsItemSelected(item);

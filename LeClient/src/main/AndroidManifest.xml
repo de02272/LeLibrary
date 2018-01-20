@@ -9,15 +9,17 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-        <activity
-            android:name="org.die_fabrik.ledemo.client.ui.ClientActivity"
-            android:label="@string/title_activity_scrolling"
-            android:theme="@style/AppTheme.NoActionBar">
+        <activity android:name="org.die_fabrik.ledemo.client.ui.ScanActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
 
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+        </activity>
+
+        <service android:name="org.die_fabrik.ledemo.client.ClientService"/>
+
+        <activity android:name="org.die_fabrik.ledemo.client.ui.DeviceActivity">
         </activity>
     </application>
 

@@ -2,11 +2,8 @@ apply plugin: 'com.android.application'
 
 android {
     compileSdkVersion 26
-
-
-
     defaultConfig {
-        applicationId "org.die_fabrik.leserver"
+        applicationId 'org.die_fabrik.ledemo.server'
         minSdkVersion 22
         targetSdkVersion 26
         versionCode 1
@@ -15,14 +12,14 @@ android {
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
 
     }
-
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
-
+    productFlavors {
+    }
 }
 
 dependencies {

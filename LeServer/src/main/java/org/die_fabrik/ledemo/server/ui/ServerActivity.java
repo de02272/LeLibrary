@@ -30,6 +30,9 @@ import org.die_fabrik.lelib.server.LeServerListeners;
 import org.die_fabrik.lelib.server.LeServerService;
 import org.die_fabrik.leserver.R;
 
+import java.util.Timer;
+import java.util.TimerTask;
+
 public class ServerActivity extends AppCompatActivity implements ILeDataProvider {
     /**
      * The logging TAG for this Object
@@ -41,11 +44,9 @@ public class ServerActivity extends AppCompatActivity implements ILeDataProvider
     private LeServerService.LeServerBinder binder;
     private BleServiceConnector serviceConnection;
     private GattListener gattListener;
-    
-    @Override
-    public Class<? extends LeData>[] getLeDataClasses() {
-        return new Class[]{IntegerData.class};
-    }
+    private Timer timer;
+    private boolean overRideFromUser = false;
+    private PeriodicNotification task;
     
     @Override
     public LeData getLeData(Class<? extends LeData> dataClass, BluetoothDevice bluetoothDevice) {
@@ -54,8 +55,14 @@ public class ServerActivity extends AppCompatActivity implements ILeDataProvider
     }
     
     @Override
+    public Class<? extends LeData>[] getLeDataClasses() {
+        return new Class[]{IntegerData.class};
+    }
+    
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        timer = new Timer();
         setContentView(R.layout.activity_main);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
@@ -105,13 +112,69 @@ public class ServerActivity extends AppCompatActivity implements ILeDataProvider
         // automatically handle clicks on the Home/Up button, so long
         // as you specify a parent activity in AndroidManifest.xml.
         int id = item.getItemId();
+        switch (id) {
+            case R.id.action_clear_notifications:
+                binder.clearNotifications();
+                return true;
         
-        //noinspection SimplifiableIfStatement
-        if (id == R.id.action_settings) {
-            return true;
+            case R.id.action_start_periodic_notifications:
+                if (task == null) {
+                    Log.v(TAG, "start periodic");
+                    task = new PeriodicNotification(0, 0, 100, 1);
+                    timer.schedule(task, 0, 100);
+                } else {
+                    Log.v(TAG, "stop periodic");
+                    task.cancel();
+                    timer.purge();
+                    task = null;
+                }
+        
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+    
+    
+    }
+    
+    private class PeriodicNotification extends TimerTask {
+        protected final String TAG = this.getClass().getSimpleName();
+        private final int step;
+        private final int max;
+        private final int min;
+        private int act;
+        private boolean down = false;
+        
+        public PeriodicNotification(int start, int min, int max, int step) {
+            this.act = start;
+            this.min = min;
+            this.max = max;
+            this.step = step;
         }
         
-        return super.onOptionsItemSelected(item);
+        /**
+         * The action to be performed by this timer task.
+         */
+        @Override
+        public void run() {
+            int n = 0;
+            if (down) {
+                n = act - step;
+                if (n < min) {
+                    n = min;
+                    down = false;
+                }
+            } else {
+                n = act + step;
+                if (n > max) {
+                    n = max;
+                    down = true;
+                }
+            }
+            Log.v(TAG, "periodic change " + n);
+            overRideFromUser = true;
+            sb.setProgress(n);
+            act = n;
+        }
     }
     
     private final class BleServiceConnector implements ServiceConnection {
@@ -157,9 +220,12 @@ public class ServerActivity extends AppCompatActivity implements ILeDataProvider
         @Override
         public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
             Log.v(TAG, "onProgressChanged( progress: " + progress + ", fromUser: " + fromUser);
-            IntegerData integerData = new IntegerData(progress);
-            binder.sendNotification(integerData);
-            
+            if (fromUser || overRideFromUser) {
+                IntegerData integerData = new IntegerData(progress);
+                binder.sendNotification(integerData);
+                overRideFromUser = false;
+            }
+            tv.setText(String.valueOf(progress));
         }
         
         /**
@@ -187,12 +253,23 @@ public class ServerActivity extends AppCompatActivity implements ILeDataProvider
     private class GattListener implements ILeGattListener {
         @Override
         public void onGattConnected(BluetoothDevice device) {
-        
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    getSupportActionBar().setSubtitle(binder.getDevices().length + " connections");
+                }
+            });
+            
         }
         
         @Override
         public void onGattDisconnected(BluetoothDevice device) {
-        
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    getSupportActionBar().setSubtitle(binder.getDevices().length + " connections");
+                }
+            });
         }
         
         @Override

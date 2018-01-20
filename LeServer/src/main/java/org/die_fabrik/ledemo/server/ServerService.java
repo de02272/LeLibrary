@@ -30,5 +30,6 @@ public class ServerService extends LeServerService {
     public void onCreate() {
         profile = new ProfileBuilder().buildProfile(this);
         super.onCreate();
+    
     }
 }

@@ -5,7 +5,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="org.die_fabrik.leserver.org.die_fabrik.ledemo.server.ui.MainActivity">
+    tools:context="org.die_fabrik.ledemo.server.ui.ServerActivity">
 
     <android.support.design.widget.AppBarLayout
         android:layout_width="match_parent"

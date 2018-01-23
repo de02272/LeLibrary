@@ -7,14 +7,11 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.Bundle;
 import android.os.IBinder;
-import android.support.design.widget.FloatingActionButton;
-import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -24,6 +21,7 @@ import org.die_fabrik.ledemo.server.ServerService;
 import org.die_fabrik.lelib.LeUtil;
 import org.die_fabrik.lelib.data.ILeDataProvider;
 import org.die_fabrik.lelib.data.LeData;
+import org.die_fabrik.lelib.server.ILeAdvertiseListener;
 import org.die_fabrik.lelib.server.ILeGattListener;
 import org.die_fabrik.lelib.server.LeAdvertiserConfig;
 import org.die_fabrik.lelib.server.LeServerListeners;
@@ -32,6 +30,7 @@ import org.die_fabrik.leserver.R;
 
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.UUID;
 
 public class ServerActivity extends AppCompatActivity implements ILeDataProvider {
     /**
@@ -47,6 +46,9 @@ public class ServerActivity extends AppCompatActivity implements ILeDataProvider
     private Timer timer;
     private boolean overRideFromUser = false;
     private PeriodicNotification task;
+    private TextView bufTv;
+    private TextView adTv;
+    private AdvertisingListener advertListener;
     
     @Override
     public LeData getLeData(Class<? extends LeData> dataClass, BluetoothDevice bluetoothDevice) {
@@ -68,19 +70,12 @@ public class ServerActivity extends AppCompatActivity implements ILeDataProvider
         setSupportActionBar(toolbar);
         tv = (TextView) findViewById(R.id.tv);
         sb = (SeekBar) findViewById(R.id.sb);
+        adTv = (TextView) findViewById(R.id.ad_uuids_tv);
+        bufTv = (TextView) findViewById(R.id.buffer_size_tv);
         
         
         sb.setOnSeekBarChangeListener(new OnSbChangedListener());
         
-        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
-        fab.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                        .setAction("Action", null).show();
-            }
-        });
-    
         LeServerListeners.registerDataProvider(this);
     
         serviceConnection = new BleServiceConnector();
@@ -89,6 +84,9 @@ public class ServerActivity extends AppCompatActivity implements ILeDataProvider
         bindService(gattServiceIntent, serviceConnection, BIND_AUTO_CREATE);
         gattListener = new GattListener();
         LeServerListeners.registerListener(gattListener);
+    
+        advertListener = new AdvertisingListener();
+        LeServerListeners.registerListener(advertListener);
         
     }
     
@@ -101,6 +99,8 @@ public class ServerActivity extends AppCompatActivity implements ILeDataProvider
     
     @Override
     protected void onDestroy() {
+        LeServerListeners.unregisterListener(advertListener);
+        LeServerListeners.unregisterListener(gattListener);
         unbindService(serviceConnection);
         super.onDestroy();
         
@@ -127,12 +127,22 @@ public class ServerActivity extends AppCompatActivity implements ILeDataProvider
                     task = null;
                 }
                 return true;
-        
+    
             default:
                 return super.onOptionsItemSelected(item);
         }
     
     
+    }
+    
+    private void refreshBuf() {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                bufTv.setText(String.valueOf(binder.getNotificationBufferSize()));
+            }
+        });
+        
     }
     
     private class PeriodicNotification extends TimerTask {
@@ -180,6 +190,7 @@ public class ServerActivity extends AppCompatActivity implements ILeDataProvider
         @Override
         public void onServiceConnected(ComponentName componentName, IBinder service) {
             binder = (LeServerService.LeServerBinder) service;
+    
             LeAdvertiserConfig cfg = LeAdvertiserConfig.getBuilder()
                     .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
                     .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
@@ -192,7 +203,26 @@ public class ServerActivity extends AppCompatActivity implements ILeDataProvider
             binder.startGatt(0);
             
             Log.i(TAG, "Bluetooth LE Services onServiceConnected");
-            
+    
+    
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    UUID[] uuids = binder.getAdvertisingUuids();
+                    final StringBuilder sb = new StringBuilder();
+                    for (int i = 0; i < uuids.length; i++) {
+                        UUID uuid = uuids[i];
+                        if (i < 1) {
+                            sb.append("[");
+                        } else {
+                            sb.append(", ");
+                        }
+                        sb.append(uuid.toString());
+                    }
+                    sb.append("]");
+                    adTv.setText(sb.toString());
+                }
+            });
             
         }
         
@@ -221,7 +251,7 @@ public class ServerActivity extends AppCompatActivity implements ILeDataProvider
             Log.v(TAG, "onProgressChanged( progress: " + progress + ", fromUser: " + fromUser);
             if (fromUser || overRideFromUser) {
                 IntegerData integerData = new IntegerData(progress);
-                binder.sendNotification(integerData);
+                binder.sendNotification(integerData, null);
                 overRideFromUser = false;
             }
             tv.setText(String.valueOf(progress));
@@ -252,13 +282,15 @@ public class ServerActivity extends AppCompatActivity implements ILeDataProvider
     private class GattListener implements ILeGattListener {
         @Override
         public void onGattConnected(BluetoothDevice device) {
+            
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
                     getSupportActionBar().setSubtitle(binder.getDevices().length + " connections");
+                    
                 }
             });
-            
+            refreshBuf();
         }
         
         @Override
@@ -267,13 +299,21 @@ public class ServerActivity extends AppCompatActivity implements ILeDataProvider
                 @Override
                 public void run() {
                     getSupportActionBar().setSubtitle(binder.getDevices().length + " connections");
+                    
                 }
             });
+            refreshBuf();
+        }
+        
+        @Override
+        public void onGattNotificationQueued() {
+            refreshBuf();
+            
         }
         
         @Override
         public void onGattNotificationSent() {
-        
+            refreshBuf();
         }
         
         @Override
@@ -282,10 +322,24 @@ public class ServerActivity extends AppCompatActivity implements ILeDataProvider
             Log.v(TAG, "onWritten with IntegerData: " + integerData.getVal());
             LeUtil.logHexValue(integerData.getLeValue(), TAG);
             sb.setProgress(integerData.getVal());
+            refreshBuf();
         }
         
         @Override
         public void onGattWrittenFailure(LeData leData, BluetoothDevice device) {
+            refreshBuf();
+        }
+    }
+    
+    private class AdvertisingListener implements ILeAdvertiseListener {
+        @Override
+        public void onAdvertiserStartFailure(final int errorCode) {
+            Log.e(TAG, "");
+            
+        }
+        
+        @Override
+        public void onAdvertiserStartSuccess(AdvertiseSettings settingsInEffect) {
         
         }
     }

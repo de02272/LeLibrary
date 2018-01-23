@@ -18,7 +18,7 @@ import java.util.List;
 
 public class LeCharacteristic extends LeAutoUuIdObject {
     
-    private final boolean notification;
+    private final ELeNotification notification;
     private final Class<? extends LeData> dataClass;
     private final ELeCharacteristicAccess access;
     private final BluetoothGattCharacteristic bluetoothGattCharacteristic;
@@ -26,7 +26,7 @@ public class LeCharacteristic extends LeAutoUuIdObject {
     // will be set when this object is bound to a LeService Object
     private LeService leService;
     
-    LeCharacteristic(String name, java.util.UUID UUID, boolean notification, Class<? extends LeData> dataClass, ELeCharacteristicAccess access) {
+    LeCharacteristic(String name, java.util.UUID UUID, ELeNotification notification, Class<? extends LeData> dataClass, ELeCharacteristicAccess access) {
         super(name, UUID);
         this.notification = notification;
         this.dataClass = dataClass;
@@ -36,7 +36,7 @@ public class LeCharacteristic extends LeAutoUuIdObject {
             
             case READ:
                 int prop = BluetoothGattCharacteristic.PROPERTY_READ;
-                if (notification) {
+                if (notification != ELeNotification.NONE) {
                     prop = prop | BluetoothGattCharacteristic.PROPERTY_NOTIFY;
                 }
                 bluetoothGattCharacteristic = new BluetoothGattCharacteristic(getUUID(), prop
@@ -44,7 +44,7 @@ public class LeCharacteristic extends LeAutoUuIdObject {
                 break;
             case WRITE:
                 prop = BluetoothGattCharacteristic.PROPERTY_WRITE;
-                if (notification) {
+                if (notification != ELeNotification.NONE) {
                     prop = prop | BluetoothGattCharacteristic.PROPERTY_NOTIFY;
                 }
                 bluetoothGattCharacteristic = new BluetoothGattCharacteristic(getUUID(), prop
@@ -52,7 +52,7 @@ public class LeCharacteristic extends LeAutoUuIdObject {
                 break;
             case BOTH:
                 prop = BluetoothGattCharacteristic.PROPERTY_WRITE | BluetoothGattCharacteristic.PROPERTY_READ;
-                if (notification) {
+                if (notification != ELeNotification.NONE) {
                     prop = prop | BluetoothGattCharacteristic.PROPERTY_NOTIFY;
                 }
                 bluetoothGattCharacteristic = new BluetoothGattCharacteristic(getUUID()
@@ -63,7 +63,7 @@ public class LeCharacteristic extends LeAutoUuIdObject {
                 bluetoothGattCharacteristic = null;
         }
         
-        if (notification && bluetoothGattCharacteristic != null) {
+        if ((notification != ELeNotification.NONE) && bluetoothGattCharacteristic != null) {
             notificationGattDescriptor = new BluetoothGattDescriptor(java.util.UUID.fromString(CLIENT_CHARACTERISTIC_UUID), BluetoothGattDescriptor.PERMISSION_WRITE);
             bluetoothGattCharacteristic.addDescriptor(notificationGattDescriptor);
         } else {
@@ -95,6 +95,10 @@ public class LeCharacteristic extends LeAutoUuIdObject {
         this.leService = leService;
     }
     
+    public ELeNotification getNotification() {
+        return notification;
+    }
+    
     public BluetoothGattDescriptor getNotificationGattDescriptor() {
         return notificationGattDescriptor;
     }
@@ -110,7 +114,7 @@ public class LeCharacteristic extends LeAutoUuIdObject {
         List<BluetoothGattDescriptor> notificationDescriptors = bluetoothGattCharacteristic.getDescriptors();
         if (notificationDescriptors != null && notificationDescriptors.size() > 0) {
             for (BluetoothGattDescriptor descriptor : notificationDescriptors) {
-                Log.v(tag, "*    Notificationddescriptor: " + descriptor.getUuid());
+                Log.v(tag, "*    NotificationDescriptor: " + descriptor.getUuid());
                 Log.v(tag, "*    permissions: " + LeUtil.getCharacteristicPermissions(ctx, descriptor.getPermissions()));
             }
         } else {

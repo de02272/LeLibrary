@@ -2,7 +2,6 @@ package org.die_fabrik.lelib.server;
 
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.le.AdvertiseSettings;
-import android.util.Log;
 
 import org.die_fabrik.lelib.data.ILeDataProvider;
 import org.die_fabrik.lelib.data.LeData;
@@ -51,7 +50,6 @@ public class LeServerListeners {
         synchronized (advertiseListeners) {
             listeners.addAll(advertiseListeners);
         }
-        Log.v(TAG, "calling onAdvertiserStartFailure(errorCode) on " + listeners.size() + " listeners");
         for (ILeAdvertiseListener listener : listeners) {
             listener.onAdvertiserStartFailure(errorCode);
         }
@@ -62,7 +60,6 @@ public class LeServerListeners {
         synchronized (advertiseListeners) {
             listeners.addAll(advertiseListeners);
         }
-        Log.v(TAG, "calling onAdvertiserStartSuccess() on " + listeners.size() + " listeners");
         for (ILeAdvertiseListener listener : listeners) {
             listener.onAdvertiserStartSuccess(settingsInEffect);
         }
@@ -73,7 +70,6 @@ public class LeServerListeners {
         synchronized (gattListeners) {
             listeners.addAll(gattListeners);
         }
-        Log.v(TAG, "calling onGattConnected() on " + listeners.size() + " listeners");
         for (ILeGattListener listener : listeners) {
             listener.onGattConnected(device);
         }
@@ -84,9 +80,18 @@ public class LeServerListeners {
         synchronized (gattListeners) {
             listeners.addAll(gattListeners);
         }
-        Log.v(TAG, "calling onGattDisconnected() on " + listeners.size() + " listeners");
         for (ILeGattListener listener : listeners) {
             listener.onGattDisconnected(device);
+        }
+    }
+    
+    public static void onGattNotificationQueued() {
+        List<ILeGattListener> listeners = new ArrayList<>();
+        synchronized (gattListeners) {
+            listeners.addAll(gattListeners);
+        }
+        for (ILeGattListener listener : listeners) {
+            listener.onGattNotificationQueued();
         }
     }
     
@@ -95,7 +100,6 @@ public class LeServerListeners {
         synchronized (gattListeners) {
             listeners.addAll(gattListeners);
         }
-        Log.v(TAG, "calling onGattNotificationSent() on " + listeners.size() + " listeners");
         for (ILeGattListener listener : listeners) {
             listener.onGattNotificationSent();
         }
@@ -106,7 +110,6 @@ public class LeServerListeners {
         synchronized (gattListeners) {
             listeners.addAll(gattListeners);
         }
-        Log.v(TAG, "calling onGattWritten() on " + listeners.size() + " listeners");
         for (ILeGattListener listener : listeners) {
             listener.onGattWritten(leData, device);
         }
@@ -117,7 +120,6 @@ public class LeServerListeners {
         synchronized (gattListeners) {
             listeners.addAll(gattListeners);
         }
-        Log.v(TAG, "calling onGattWrittenFailure() on " + listeners.size() + " listeners");
         for (ILeGattListener listener : listeners) {
             listener.onGattWrittenFailure(leData, device);
         }

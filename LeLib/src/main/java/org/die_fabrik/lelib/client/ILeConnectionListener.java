@@ -5,11 +5,11 @@ package org.die_fabrik.lelib.client;
  */
 
 public interface ILeConnectionListener {
-    void onConnectionDisconnect();
+    void onConnDisconnect();
     
-    void onConnectionDiscovered();
+    void onConnDiscovered();
     
-    void onConnectionDiscovering();
+    void onConnDiscovering();
     
-    void onConnectionTimeout();
+    void onConnTimeout();
 }

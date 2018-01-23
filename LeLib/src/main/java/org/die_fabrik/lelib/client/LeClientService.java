@@ -295,9 +295,16 @@ public abstract class LeClientService extends Service {
             if (leConnectionTimeout != null) {
                 leConnectionTimeout.cancel();
             }
-            gatt.disconnect();
-            gatt = null;
+            if (gatt != null) {
+                gatt.disconnect();
+                gatt = null;
+            }
+            queueManager.clearQueue();
             discoveredServices = null;
+        }
+    
+        public int getCommandBufferSize() {
+            return queueManager.queue.size();
         }
         
         /**
@@ -525,7 +532,7 @@ public abstract class LeClientService extends Service {
                 try {
                     byte[] leValue = characteristic.getValue();
                     LeData leData = LeUtil.createLeDataFromLeValue(leValue, leCharacteristic.getDataClass());
-                    LeClientListeners.onCommunicationNotificationReceived(leData);
+                    LeClientListeners.onComNotificationReceived(leData);
                     
                 } catch (NoSuchMethodException | InvocationTargetException | InstantiationException | IllegalAccessException e) {
                     Log.e(TAG, "Failure during usage of Reflexion", e);
@@ -548,14 +555,13 @@ public abstract class LeClientService extends Service {
             super.onCharacteristicRead(gatt, characteristic, status);
             Log.v(TAG, "onCharacteristicRead characteristic: " + characteristic.getUuid().toString()
                     + ", status: " + LeUtil.getGattStatus(LeClientService.this, status));
-            queueManager.nextCommand();
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 LeCharacteristic leCharacteristic = findLeCharacteristic(characteristic.getUuid());
                 if (leCharacteristic != null) {
                     try {
                         byte[] leValue = characteristic.getValue();
                         LeData leData = LeUtil.createLeDataFromLeValue(leValue, leCharacteristic.getDataClass());
-                        LeClientListeners.onCommunicationRead(leData);
+                        LeClientListeners.onComRead(leData);
                         
                     } catch (NoSuchMethodException | InvocationTargetException | InstantiationException | IllegalAccessException e) {
                         Log.e(TAG, "Failure during usage of Reflexion", e);
@@ -566,6 +572,7 @@ public abstract class LeClientService extends Service {
             } else {
                 Log.e(TAG, "status!=GATT_SUCCESS");
             }
+            QueuedCommand lastCommand = queueManager.nextCommand();
         }
         
         /**
@@ -590,7 +597,7 @@ public abstract class LeClientService extends Service {
                     ", status: " + LeUtil.getGattStatus(LeClientService.this, status)
                     + ", value.length: " + characteristic.getValue().length +
                     ", value: " + characteristic.getValue());
-            QueuedCommand lastCommand = queueManager.nextCommand();
+    
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 LeCharacteristic leCharacteristic = findLeCharacteristic(characteristic.getUuid());
                 if (leCharacteristic != null) {
@@ -599,7 +606,7 @@ public abstract class LeClientService extends Service {
                         LeData leData = LeUtil.createLeDataFromLeValue(leValue, leCharacteristic.getDataClass());
                         // TODO if this is a reliable transaction - we havbe to check the value against the value from lastCommand
                         // I'm not clear how to abort this transaction?
-                        LeClientListeners.onCommunicationWrite(leData);
+                        LeClientListeners.onComWrite(leData);
                         
                     } catch (NoSuchMethodException | InvocationTargetException | InstantiationException | IllegalAccessException e) {
                         Log.e(TAG, "Failure during usage of Reflexion", e);
@@ -610,6 +617,7 @@ public abstract class LeClientService extends Service {
             } else {
                 Log.e(TAG, "status!=GATT_SUCCESS");
             }
+            QueuedCommand lastCommand = queueManager.nextCommand();
         }
         
         /**
@@ -633,17 +641,20 @@ public abstract class LeClientService extends Service {
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
                     boolean discovering = gatt.discoverServices();
                     if (discovering) {
-                        LeClientListeners.onConnectionDiscovering();
+                        LeClientListeners.onConnDiscovering();
                     } else {
+                        // TODO ist das nötig?
+                        LeClientListeners.onConnDisconnect();
                         leClientServiceBinder.disconnect();
                     }
                 } else { // disconnected with a reason
-                    LeClientListeners.onConnectionDisconnect();
+                    LeClientListeners.onConnDisconnect();
                     queueManager.clearQueue();
                 }
             } else {
-                //TODO prüfen ob das reicht, oder ob außerdem noch LeClientListeners.onConnectionDisconnect(); aufgerufen werden muss.
+                //TODO prüfen ob das reicht, oder ob außerdem noch LeClientListeners.onConnDisconnect(); aufgerufen werden muss.
                 leClientServiceBinder.disconnect();
+                LeClientListeners.onConnDisconnect();
             }
         }
         
@@ -692,13 +703,13 @@ public abstract class LeClientService extends Service {
             
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 discoveredServices = gatt.getServices();
-                LeClientListeners.onConnectionDiscovered();
+                LeClientListeners.onConnDiscovered();
                 
             } else {
                 Log.e(TAG, "something was wrong - will disconnect");
                 leClientServiceBinder.disconnect();
                 // TODO is it necessary to do the callback here, would disconnect() do the same in onConnectionStateChanged?
-                LeClientListeners.onConnectionDisconnect();
+                LeClientListeners.onConnDisconnect();
             }
         }
     }
@@ -759,6 +770,7 @@ public abstract class LeClientService extends Service {
                 queue.add(queuedCommand);
             }
             proveNextCommand();
+            LeClientListeners.onComCommandQueued();
         }
         
         /**
@@ -775,7 +787,11 @@ public abstract class LeClientService extends Service {
          * this will cause the QueueManagerThread to execute the next command
          */
         QueuedCommand nextCommand() {
-            Log.v(TAG, "nextCommand()");
+            if (queue.size() < 1) {
+                Log.v(TAG, "nextCommand() will fall asleep");
+            } else {
+                Log.v(TAG, "nextCommand() will execute next Command");
+            }
             QueuedCommand answer = lastCommand;
             lastCommand = null;
             wakeUp();
@@ -835,7 +851,7 @@ public abstract class LeClientService extends Service {
                             lastCommand = queue.remove(0); // getting the oldest Object
                         }
                         boolean success = lastCommand.execute(gatt);
-                        LeClientListeners.onCommunicationCommandSent(success, lastCommand.getIdentifier());
+                        LeClientListeners.onComCommandSent(success, lastCommand.getIdentifier());
                     }
                     synchronized (lock) {
                         try {
@@ -1030,7 +1046,7 @@ public abstract class LeClientService extends Service {
         @Override
         public void run() {
             Log.v(TAG, "The timeout to establish a connection is achieved, will cancel the process");
-            LeClientListeners.onConnectionTimeout();
+            LeClientListeners.onConnTimeout();
             leClientServiceBinder.disconnect();
         }
     }

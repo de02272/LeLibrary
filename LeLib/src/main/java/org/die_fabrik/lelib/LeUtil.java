@@ -15,7 +15,6 @@ import android.os.Build;
 import android.util.Log;
 
 import org.die_fabrik.lelib.data.LeData;
-import org.die_fabrik.library.R;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;

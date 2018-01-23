@@ -1,7 +1,6 @@
 package org.die_fabrik.lelib.client;
 
 import android.bluetooth.le.ScanResult;
-import android.util.Log;
 
 import org.die_fabrik.lelib.data.LeData;
 
@@ -33,97 +32,104 @@ public class LeClientListeners {
      */
     private static String TAG = "LeClientListeners";
     
-    static void onCommunicationCommandSent(boolean success, int identifier) {
+    public static void clearAllIsteners() {
+        connectionListeners.clear();
+        scanListeners.clear();
+        connectionListeners.clear();
+    }
+    
+    public static void onComCommandQueued() {
         List<ILeCommunicationListener> listeners = new ArrayList<>();
         synchronized (connectionListeners) {
             listeners.addAll(communicationListeners);
         }
-        Log.v(TAG, "calling onConnectionConnected(BluetoothDevice) on " + listeners.size() + " listeners");
-        for (ILeCommunicationListener listener : listeners) {
-            listener.onCommunicationCommandSent(success, identifier);
-        }
+        for (ILeCommunicationListener listener : listeners)
+            listener.onComCommandQueued();
     }
     
-    static void onCommunicationNotificationReceived(LeData leData) {
+    static void onComCommandSent(boolean success, int identifier) {
         List<ILeCommunicationListener> listeners = new ArrayList<>();
         synchronized (connectionListeners) {
             listeners.addAll(communicationListeners);
         }
-        Log.v(TAG, "calling onCommunicationNotificationReceived(LeData) on " + listeners.size() + " listeners");
         for (ILeCommunicationListener listener : listeners) {
-            listener.onCommunicationNotificationReceived(leData);
+            listener.onComCommandSent(success, identifier);
         }
     }
     
-    static void onCommunicationRead(LeData leData) {
+    static void onComNotificationReceived(LeData leData) {
         List<ILeCommunicationListener> listeners = new ArrayList<>();
         synchronized (connectionListeners) {
             listeners.addAll(communicationListeners);
         }
-        Log.v(TAG, "calling onCommunicationRead(LeData) on " + listeners.size() + " listeners");
         for (ILeCommunicationListener listener : listeners) {
-            listener.onCommunicationRead(leData);
+            listener.onComNotificationReceived(leData);
         }
     }
     
-    static void onCommunicationWrite(LeData leData) {
+    static void onComRead(LeData leData) {
         List<ILeCommunicationListener> listeners = new ArrayList<>();
         synchronized (connectionListeners) {
             listeners.addAll(communicationListeners);
         }
-        Log.v(TAG, "calling onCommunicationWrite(LeData) on " + listeners.size() + " listeners");
         for (ILeCommunicationListener listener : listeners) {
-            listener.onCommunicationWrite(leData);
+            listener.onComRead(leData);
         }
     }
     
-    static void onConnectionDisconnect() {
+    static void onComWrite(LeData leData) {
+        List<ILeCommunicationListener> listeners = new ArrayList<>();
+        synchronized (connectionListeners) {
+            listeners.addAll(communicationListeners);
+        }
+        for (ILeCommunicationListener listener : listeners) {
+            listener.onComWrite(leData);
+        }
+    }
+    
+    static void onConnDisconnect() {
         List<ILeConnectionListener> listeners = new ArrayList<>();
         synchronized (connectionListeners) {
             listeners.addAll(connectionListeners);
         }
-        Log.v(TAG, "calling onConnectionDisconnect() on " + listeners.size() + " listeners");
         for (ILeConnectionListener listener : listeners) {
-            listener.onConnectionDisconnect();
+            listener.onConnDisconnect();
         }
     }
     
     /**
-     * calling the registered callback for onConnectionDiscovered()
+     * calling the registered callback for onConnDiscovered()
      */
-    static void onConnectionDiscovered() {
+    static void onConnDiscovered() {
         List<ILeConnectionListener> listeners = new ArrayList<>();
         synchronized (connectionListeners) {
             listeners.addAll(connectionListeners);
         }
-        Log.v(TAG, "calling onConnectionDiscovered() on " + listeners.size() + " listeners");
         for (ILeConnectionListener listener : listeners) {
-            listener.onConnectionDiscovered();
+            listener.onConnDiscovered();
         }
     }
     
-    static void onConnectionDiscovering() {
+    static void onConnDiscovering() {
         List<ILeConnectionListener> listeners = new ArrayList<>();
         synchronized (connectionListeners) {
             listeners.addAll(connectionListeners);
         }
-        Log.v(TAG, "calling onConnectionDiscovering() on " + listeners.size() + " listeners");
         for (ILeConnectionListener listener : listeners) {
-            listener.onConnectionDiscovering();
+            listener.onConnDiscovering();
         }
     }
     
     /**
-     * calling the registered callbacks for onConnectionTimeout
+     * calling the registered callbacks for onConnTimeout
      */
-    static void onConnectionTimeout() {
+    static void onConnTimeout() {
         List<ILeConnectionListener> listeners = new ArrayList<>();
         synchronized (connectionListeners) {
             listeners.addAll(connectionListeners);
         }
-        Log.v(TAG, "calling onConnectionTimeout(BluetoothDevice) on " + listeners.size() + " listeners");
         for (ILeConnectionListener listener : listeners) {
-            listener.onConnectionTimeout();
+            listener.onConnTimeout();
         }
     }
     
@@ -132,7 +138,6 @@ public class LeClientListeners {
         synchronized (scanListeners) {
             listeners.addAll(scanListeners);
         }
-        Log.v(TAG, "calling onScanBatchResults() on " + listeners.size() + " listeners");
         for (ILeScanListener listener : listeners) {
             listener.onScanBatchResults(results);
         }
@@ -143,7 +148,6 @@ public class LeClientListeners {
         synchronized (scanListeners) {
             listeners.addAll(scanListeners);
         }
-        Log.v(TAG, "calling onScanFailed() on " + listeners.size() + " listeners");
         for (ILeScanListener listener : listeners) {
             listener.onScanFailed(errorCode);
         }
@@ -154,7 +158,6 @@ public class LeClientListeners {
         synchronized (scanListeners) {
             listeners.addAll(scanListeners);
         }
-        Log.v(TAG, "calling onScanResult() on " + listeners.size() + " listeners");
         for (ILeScanListener listener : listeners) {
             listener.onScanResult(callbackType, result);
         }
@@ -165,7 +168,6 @@ public class LeClientListeners {
         synchronized (scanListeners) {
             listeners.addAll(scanListeners);
         }
-        Log.v(TAG, "calling onScanStarted() on " + listeners.size() + " listeners");
         for (ILeScanListener listener : listeners) {
             listener.onScanStarted(timeout);
         }
@@ -176,7 +178,6 @@ public class LeClientListeners {
         synchronized (scanListeners) {
             listeners.addAll(scanListeners);
         }
-        Log.v(TAG, "calling onScanStopped() on " + listeners.size() + " listeners");
         for (ILeScanListener listener : listeners) {
             listener.onScanStopped(scanResults);
         }
@@ -187,7 +188,6 @@ public class LeClientListeners {
         synchronized (scanListeners) {
             listeners.addAll(scanListeners);
         }
-        Log.v(TAG, "calling onScanTimeout() on " + listeners.size() + " listeners");
         for (ILeScanListener listener : listeners) {
             listener.onScanTimeout();
         }
@@ -207,11 +207,6 @@ public class LeClientListeners {
         }
     }
     
-    public static void clearAllIsteners() {
-        connectionListeners.clear();
-        scanListeners.clear();
-        connectionListeners.clear();
-    }
     /**
      * adds a listener to the list of scanListeners
      * will do nothing if already registered

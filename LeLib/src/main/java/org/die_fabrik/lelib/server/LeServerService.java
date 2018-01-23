@@ -24,6 +24,7 @@ import android.util.Log;
 import org.die_fabrik.lelib.LeUtil;
 import org.die_fabrik.lelib.data.ILeDataProvider;
 import org.die_fabrik.lelib.data.LeData;
+import org.die_fabrik.lelib.wrapper.ELeNotification;
 import org.die_fabrik.lelib.wrapper.LeCharacteristic;
 import org.die_fabrik.lelib.wrapper.LeProfile;
 import org.die_fabrik.lelib.wrapper.LeService;
@@ -234,6 +235,7 @@ public abstract class LeServerService extends Service {
         assert bluetoothManager != null;
         bluetoothAdapter = bluetoothManager.getAdapter();
         bluetoothAdvertiser = bluetoothAdapter.getBluetoothLeAdvertiser();
+    
         timer = new Timer();
         LeUtil.logLines(LeUtil.logAdapterCapabilities(bluetoothAdapter), TAG);
         leAdvertiseCallback = new LeAdvertiserCallback();
@@ -316,6 +318,10 @@ public abstract class LeServerService extends Service {
             Log.v(TAG, "disconnect");
         }
     
+        public UUID[] getAdvertisingUuids() {
+            return getLeProfile().getAdvertisingUuids();
+        }
+        
         /**
          * @return the list of actual connected devices
          */
@@ -327,14 +333,20 @@ public abstract class LeServerService extends Service {
             return devices.toArray(new BluetoothDevice[devices.size()]);
         }
     
+    
+        public int getNotificationBufferSize() {
+            return notificationQueueManager.queue.size();
+        }
+        
         /**
          * sends a notification (leData) to all client which have previously registered
          * to receive this kind of notification
          *
-         * @param leData The Data to provide to the clients
+         * @param leData        The Data to provide to the clients
+         * @param excludeDevice a BluetoothDevice which will be excluded from the receipients of the notification
          * @return true id the process was initiated successfully
          */
-        public synchronized boolean sendNotification(LeData leData) {
+        public synchronized boolean sendNotification(LeData leData, BluetoothDevice excludeDevice) {
             byte[] leValue = new byte[0];
             try {
                 leValue = leData.createLeValue();
@@ -342,9 +354,11 @@ public abstract class LeServerService extends Service {
                 LeUtil.logHexValue(leValue, TAG);
                 int n = 0;
                 for (LeSession leSession : leSessions) {
-                    if (leSession.notificationClasses.contains(leData.getClass())) {
-                        notificationQueueManager.addCommand(new Notification(leData.getClass(), leValue, leSession.getDevice()));
-                        n++;
+                    if (leSession.getDevice() != excludeDevice) {
+                        if (leSession.notificationClasses.contains(leData.getClass())) {
+                            notificationQueueManager.addCommand(new Notification(leData.getClass(), leValue, leSession.getDevice()));
+                            n++;
+                        }
                     }
                 }
                 Log.e(TAG, "queued " + n + " notifications of class " + leData.getClass());
@@ -396,6 +410,7 @@ public abstract class LeServerService extends Service {
     
                     bluetoothAdvertiser.startAdvertising(settings, dataBuilder1.build(), scanResponse, leAdvertiseCallback);
                     advertiserConfig = config; // for the next restart
+    
                 }
             } else {
                 Log.e(TAG, "This device is not capable to do advertising");
@@ -573,14 +588,23 @@ public abstract class LeServerService extends Service {
                 if (leCharacteristic != null) {
                     
                     if (preparedWrite) {
-                        //TODO check whether its better to rest the incoming buffer here or where else?
-                        leSession.getIncomingCharacteristic().clear();
-                        leSession.getIncomingCharacteristic().setDataClass(leCharacteristic.getDataClass());
-                        leSession.getIncomingCharacteristic().addLeValue(value);
+                        if (offset == 0) {
+                            Log.v(TAG, "received first part of a multi part message");
+                            leSession.getIncomingCharacteristic().clear();
+                            leSession.getIncomingCharacteristic().setLeCharacteristic(leCharacteristic);
+                            leSession.getIncomingCharacteristic().addLeValue(value);
+                        } else {
+                            Log.v(TAG, "received additional part of a multi part message");
+                            leSession.getIncomingCharacteristic().addLeValue(value);
+                        }
                         answerStatus = BluetoothGatt.GATT_SUCCESS;
                     } else {
                         try {
                             leData = LeUtil.createLeDataFromLeValue(value, leCharacteristic.getDataClass());
+                            if (leCharacteristic.getNotification() == ELeNotification.NOTIFICATION_WITH_AUTO_REPLY) {
+                                Log.v(TAG, "sending auto replay for " + leCharacteristic.getName());
+                                leServerBinder.sendNotification(leData, leSession.getDevice());
+                            }
                             answerStatus = BluetoothGatt.GATT_SUCCESS;
                         } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
                             Log.e(TAG, "can not build LeData Object");
@@ -756,8 +780,16 @@ public abstract class LeServerService extends Service {
                 
                 if (execute) {
                     try {
+    
                         leValue = leSession.getIncomingCharacteristic().getLeValue();
-                        LeData leData = LeUtil.createLeDataFromLeValue(leSession.getIncomingCharacteristic().getLeValue(), leSession.getIncomingCharacteristic().getDataClass());
+    
+                        LeData leData = LeUtil.createLeDataFromLeValue(leSession.getIncomingCharacteristic().getLeValue(), leSession.getIncomingCharacteristic().getLeCharacteristic().getDataClass());
+                        LeServerListeners.onGattWritten(leData, leSession.getDevice());
+    
+                        if (leSession.getIncomingCharacteristic().getLeCharacteristic().getNotification() == ELeNotification.NOTIFICATION_WITH_AUTO_REPLY) {
+                            Log.v(TAG, "sending auto replay for " + leSession.getIncomingCharacteristic().getLeCharacteristic().getName());
+                            leServerBinder.sendNotification(leData, leSession.getDevice());
+                        }
                         answerStatus = BluetoothGatt.GATT_SUCCESS;
                     } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
                         Log.e(TAG, "can not build LeData Object");
@@ -874,6 +906,7 @@ public abstract class LeServerService extends Service {
                 queue.add(queuedCommand);
             }
             wakeUp();
+            LeServerListeners.onGattNotificationQueued();
         }
         
         /**
@@ -1091,8 +1124,8 @@ public abstract class LeServerService extends Service {
     private class LeValues {
         private final List<byte[]> leValues = new ArrayList<>();
         private int leValuesLength = 0;
-        private Class<? extends LeData> dataClass;
         private byte[] leValue;
+        private LeCharacteristic leCharacteristic;
         
         private LeValues() {
         
@@ -1109,13 +1142,14 @@ public abstract class LeServerService extends Service {
             leValues.clear();
             leValuesLength = 0;
         }
-        
-        public Class<? extends LeData> getDataClass() {
-            return dataClass;
+    
+    
+        public LeCharacteristic getLeCharacteristic() {
+            return leCharacteristic;
         }
-        
-        public void setDataClass(Class<? extends LeData> dataClass) {
-            this.dataClass = dataClass;
+    
+        public void setLeCharacteristic(LeCharacteristic leCharacteristic) {
+            this.leCharacteristic = leCharacteristic;
         }
         
         private byte[] getLeValue() {

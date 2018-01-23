@@ -257,6 +257,7 @@ public class ScanActivity extends AppCompatActivity {
         @Override
         public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
             Log.v(TAG, "onItemClick() position: " + position + ", id: " + id);
+            binder.stopScan();
             String adr = devices.get(position);
             Intent intent = new Intent(ScanActivity.this, DeviceActivity.class);
             intent.putExtra(DEVICE_ADDRESS, adr);

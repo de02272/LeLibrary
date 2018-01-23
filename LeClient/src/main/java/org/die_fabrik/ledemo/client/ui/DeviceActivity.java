@@ -6,6 +6,8 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.widget.ProgressBar;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -19,6 +21,9 @@ import org.die_fabrik.lelib.client.LeClientService;
 import org.die_fabrik.lelib.data.LeData;
 import org.die_fabrik.library.R;
 
+import java.util.Timer;
+import java.util.TimerTask;
+
 public class DeviceActivity extends AppCompatActivity {
     private final String TAG = this.getClass().getSimpleName();
     private LeClientService.LeClientServiceBinder binder;
@@ -28,9 +33,52 @@ public class DeviceActivity extends AppCompatActivity {
     private TextView tv;
     private ConnectionListener connectionListener;
     private CommunicationListener communicationListener;
+    private Timer timer;
+    private PeriodicNotification task;
+    private boolean overRideFromUser;
+    private TextView bufTv;
     
     private void connect() {
         binder.connect(deviceAddress, 5000);
+    }
+    
+    /**
+     * Take care of popping the fragment back stack or finishing the activity
+     * as appropriate.
+     */
+    @Override
+    public void onBackPressed() {
+        binder.disconnect();
+        super.onBackPressed();
+    }
+    
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        timer = new Timer();
+        setContentView(R.layout.activity_device);
+        bufTv = (TextView) findViewById(R.id.buffer_size_tv);
+        bufTv.setText("0");
+        tv = (TextView) findViewById(R.id.tv);
+        sb = (SeekBar) findViewById(R.id.sb);
+        sb.setEnabled(false);
+        sb.setOnSeekBarChangeListener(new OnSbChangedListener());
+        deviceAddress = getIntent().getStringExtra(ScanActivity.DEVICE_ADDRESS);
+        getSupportActionBar().setSubtitle("Device: " + deviceAddress);
+        serviceConnection = new ServiceConnection();
+        Intent intent = new Intent(this, ClientService.class);
+        bindService(intent, serviceConnection, BIND_AUTO_CREATE);
+        connectionListener = new ConnectionListener();
+        LeClientListeners.registerListener(connectionListener);
+        communicationListener = new CommunicationListener();
+        LeClientListeners.registerListener(communicationListener);
+    }
+    
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        // Inflate the menu; this adds items to the action bar if it is present.
+        getMenuInflater().inflate(R.menu.menu_main, menu);
+        return true;
     }
     
     @Override
@@ -43,21 +91,42 @@ public class DeviceActivity extends AppCompatActivity {
     }
     
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_device);
-        tv = (TextView) findViewById(R.id.tv);
-        sb = (SeekBar) findViewById(R.id.sb);
-        sb.setOnSeekBarChangeListener(new OnSbChangedListener());
-        deviceAddress = getIntent().getStringExtra(ScanActivity.DEVICE_ADDRESS);
-        getSupportActionBar().setSubtitle("Device: " + deviceAddress);
-        serviceConnection = new ServiceConnection();
-        Intent intent = new Intent(this, ClientService.class);
-        bindService(intent, serviceConnection, BIND_AUTO_CREATE);
-        connectionListener = new ConnectionListener();
-        LeClientListeners.registerListener(connectionListener);
-        communicationListener = new CommunicationListener();
-        LeClientListeners.registerListener(connectionListener);
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Handle action bar item clicks here. The action bar will
+        // automatically handle clicks on the Home/Up button, so long
+        // as you specify a parent activity in AndroidManifest.xml.
+        int id = item.getItemId();
+        switch (id) {
+            
+            
+            case R.id.action_start_periodic_changes:
+                if (task == null) {
+                    Log.v(TAG, "start periodic");
+                    task = new PeriodicNotification(0, 0, 100, 1);
+                    timer.schedule(task, 0, 100);
+                } else {
+                    Log.v(TAG, "stop periodic");
+                    task.cancel();
+                    timer.purge();
+                    task = null;
+                }
+                return true;
+            
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+        
+        
+    }
+    
+    private void refreshBuf() {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                bufTv.setText(String.valueOf(binder.getCommandBufferSize()));
+            }
+        });
+        
     }
     
     private class ServiceConnection implements android.content.ServiceConnection {
@@ -110,8 +179,9 @@ public class DeviceActivity extends AppCompatActivity {
         @Override
         public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
             Log.v(TAG, "onProgressChanged() progress: " + progress + ", fromUser: " + fromUser);
-            if (fromUser) {
+            if (fromUser || overRideFromUser) {
                 IntegerData integerData = new IntegerData(progress);
+                overRideFromUser = false;
                 binder.write(integerData, 1);
             }
             tv.setText(String.valueOf(progress));
@@ -142,39 +212,48 @@ public class DeviceActivity extends AppCompatActivity {
     
     private class ConnectionListener implements ILeConnectionListener {
         @Override
-        public void onConnectionDisconnect() {
-            Log.i(TAG, "onConnectionDisconnect()");
+        public void onConnDisconnect() {
+            Log.i(TAG, "onConnDisconnect()");
+            finish();
         }
         
         @Override
-        public void onConnectionDiscovered() {
-            Log.i(TAG, "onConnectionDiscovered()");
+        public void onConnDiscovered() {
+            Log.i(TAG, "onConnDiscovered()");
+            
             binder.read(IntegerData.class, 2);
             binder.setNotification(IntegerData.class, true, 3);
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    sb.setEnabled(true);
+                }
+            });
+            
         }
         
         @Override
-        public void onConnectionDiscovering() {
-            Log.v(TAG, "onConnectionDiscovering()");
+        public void onConnDiscovering() {
+            Log.v(TAG, "onConnDiscovering()");
         }
-        
-        @Override
-        public void onConnectionTimeout() {
-            Log.w(TAG, "onConnectionTimeout()");
-        }
-    }
     
-    /**
-     * Take care of popping the fragment back stack or finishing the activity
-     * as appropriate.
-     */
-    @Override
-    public void onBackPressed() {
-        binder.disconnect();
-        super.onBackPressed();
+        @Override
+        public void onConnTimeout() {
+            Log.w(TAG, "onConnTimeout()");
+            finish();
+        }
     }
     
     private class CommunicationListener implements ILeCommunicationListener {
+        /**
+         * informs the listener that a new command (read/write/enable/diable notification) was
+         * queued
+         */
+        @Override
+        public void onComCommandQueued() {
+            refreshBuf();
+        }
+        
         /**
          * called when the last command (read/wrirte/setNotification)
          * was sent to the other side
@@ -183,8 +262,9 @@ public class DeviceActivity extends AppCompatActivity {
          * @param identifier the Identifier which was given by the Ui when initiating this command
          */
         @Override
-        public void onCommunicationCommandSent(boolean success, int identifier) {
-            Log.v(TAG, "onCommunicationCommandSent() success: " + success + ", identifier: " + identifier);
+        public void onComCommandSent(boolean success, int identifier) {
+            Log.v(TAG, "onComCommandSent() success: " + success + ", identifier: " + identifier);
+            refreshBuf();
         }
         
         /**
@@ -193,12 +273,13 @@ public class DeviceActivity extends AppCompatActivity {
          * @param leData The object received via Notification
          */
         @Override
-        public void onCommunicationNotificationReceived(LeData leData) {
-            Log.v(TAG, "onCommunicationNotificationReceived() dataClass: " + leData.getClass().getSimpleName());
+        public void onComNotificationReceived(LeData leData) {
+            Log.v(TAG, "onComNotificationReceived() dataClass: " + leData.getClass().getSimpleName());
             if (leData.getClass().equals(IntegerData.class)) {
                 IntegerData integerData = (IntegerData) leData;
                 sb.setProgress(integerData.getVal());
             }
+            refreshBuf();
         }
         
         /**
@@ -207,12 +288,13 @@ public class DeviceActivity extends AppCompatActivity {
          * @param leData dataObject
          */
         @Override
-        public void onCommunicationRead(LeData leData) {
-            Log.v(TAG, "onCommunicationRead() dataClass: " + leData.getClass().getSimpleName());
+        public void onComRead(LeData leData) {
+            Log.v(TAG, "onComRead() dataClass: " + leData.getClass().getSimpleName());
             if (leData.getClass().equals(IntegerData.class)) {
                 IntegerData integerData = (IntegerData) leData;
                 sb.setProgress(integerData.getVal());
             }
+            refreshBuf();
         }
         
         /**
@@ -221,8 +303,50 @@ public class DeviceActivity extends AppCompatActivity {
          * @param leData the LeData which was sent to the server
          */
         @Override
-        public void onCommunicationWrite(LeData leData) {
-            Log.v(TAG, "onCommunicationWrite() dataClass: " + leData.getClass().getSimpleName());
+        public void onComWrite(LeData leData) {
+            Log.v(TAG, "onComWrite() dataClass: " + leData.getClass().getSimpleName());
+            refreshBuf();
+        }
+    }
+    
+    private class PeriodicNotification extends TimerTask {
+        protected final String TAG = this.getClass().getSimpleName();
+        private final int step;
+        private final int max;
+        private final int min;
+        private int act;
+        private boolean down = false;
+        
+        public PeriodicNotification(int start, int min, int max, int step) {
+            this.act = start;
+            this.min = min;
+            this.max = max;
+            this.step = step;
+        }
+        
+        /**
+         * The action to be performed by this timer task.
+         */
+        @Override
+        public void run() {
+            int n = 0;
+            if (down) {
+                n = act - step;
+                if (n < min) {
+                    n = min;
+                    down = false;
+                }
+            } else {
+                n = act + step;
+                if (n > max) {
+                    n = max;
+                    down = true;
+                }
+            }
+            Log.v(TAG, "periodic change " + n);
+            overRideFromUser = true;
+            sb.setProgress(n);
+            act = n;
         }
     }
 }

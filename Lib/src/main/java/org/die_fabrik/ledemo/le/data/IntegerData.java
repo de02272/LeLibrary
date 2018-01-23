@@ -11,6 +11,7 @@ import java.nio.ByteBuffer;
 
 public class IntegerData extends LeData {
     private int val;
+    private byte[] tmpData = new byte[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22};
     
     public IntegerData(int val) {
         this.val = val;
@@ -28,7 +29,10 @@ public class IntegerData extends LeData {
     @Override
     public void constructLeData(byte[] leValue) throws UnsupportedEncodingException {
         ByteBuffer bb = ByteBuffer.wrap(leValue);
+        //bb.order();
         this.val = bb.getInt();
+        //Log.v(TAG, "Position: "+bb.position());
+        //LeUtil.logHexValue(leValue, TAG);
     }
     
     /**
@@ -38,8 +42,9 @@ public class IntegerData extends LeData {
      */
     @Override
     public byte[] createLeValue() throws UnsupportedEncodingException {
-        ByteBuffer bb = ByteBuffer.allocate(Integer.SIZE / Byte.SIZE);
+        ByteBuffer bb = ByteBuffer.allocate(Integer.SIZE / Byte.SIZE /*+ tmpData.length*/);
         bb.putInt(val);
+        //bb.put(tmpData);
         return bb.array();
     }
     

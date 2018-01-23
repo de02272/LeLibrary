@@ -5,6 +5,7 @@ import android.content.Context;
 
 import org.die_fabrik.ledemo.le.data.IntegerData;
 import org.die_fabrik.lelib.wrapper.ELeCharacteristicAccess;
+import org.die_fabrik.lelib.wrapper.ELeNotification;
 import org.die_fabrik.lelib.wrapper.LeCharacteristic;
 import org.die_fabrik.lelib.wrapper.LeProfile;
 import org.die_fabrik.lelib.wrapper.LeService;
@@ -31,7 +32,7 @@ public class ProfileBuilder {
                 .setName("INTEGER VALUE")
                 .setAccess(ELeCharacteristicAccess.BOTH)
                 .setDataClass(IntegerData.class)
-                .setNotification(true)
+                .setNotification(ELeNotification.NOTIFICATION_WITH_AUTO_REPLY)
                 .create();
         
         

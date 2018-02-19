@@ -270,6 +270,7 @@ public abstract class LeClientService extends Service {
          * @return true when the request to connect was queued successfully
          */
         public boolean connect(String deviceAddress, long timeout) {
+            Log.e(TAG, "connect to: " + deviceAddress + " for " + timeout + " ms");
             BluetoothDevice device = bluetoothAdapter.getRemoteDevice(deviceAddress);
             if (device != null) {
                 return connect(device, timeout);

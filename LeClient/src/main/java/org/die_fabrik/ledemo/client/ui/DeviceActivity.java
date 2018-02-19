@@ -38,6 +38,11 @@ public class DeviceActivity extends AppCompatActivity {
     private PeriodicNotification task;
     private boolean overRideFromUser;
     private TextView bufTv;
+    private TextView descWriteTv;
+    private TextView descReadTv;
+    private TextView notificationsReceivedTv;
+    private TextView charaWriteTv;
+    private TextView charaReadTv;
     
     private void connect() {
         binder.connect(deviceAddress, timeout);
@@ -64,6 +69,14 @@ public class DeviceActivity extends AppCompatActivity {
         sb = (SeekBar) findViewById(R.id.sb);
         sb.setEnabled(false);
         sb.setOnSeekBarChangeListener(new OnSbChangedListener());
+    
+        charaReadTv = (TextView) findViewById(R.id.chara_read_tv);
+        charaWriteTv = (TextView) findViewById(R.id.chara_write_tv);
+        notificationsReceivedTv = (TextView) findViewById(R.id.notification_tv);
+        descReadTv = (TextView) findViewById(R.id.desc_read_tv);
+        descWriteTv = (TextView) findViewById(R.id.desc_write_tv);
+        
+        
         deviceAddress = getIntent().getStringExtra(ScanActivity.DEVICE_ADDRESS);
         getSupportActionBar().setSubtitle("Device: " + deviceAddress);
         serviceConnection = new ServiceConnection();
@@ -85,6 +98,9 @@ public class DeviceActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (binder != null) {
+            binder.disconnect();
+        }
         LeClientListeners.unregisterListener(connectionListener);
         LeClientListeners.unregisterListener(communicationListener);
         
@@ -104,7 +120,7 @@ public class DeviceActivity extends AppCompatActivity {
                 if (task == null) {
                     Log.v(TAG, "start periodic");
                     task = new PeriodicNotification(0, 0, 100, 1);
-                    timer.schedule(task, 0, 100);
+                    timer.schedule(task, 0, 200);
                 } else {
                     Log.v(TAG, "stop periodic");
                     task.cancel();
@@ -120,11 +136,16 @@ public class DeviceActivity extends AppCompatActivity {
         
     }
     
-    private void refreshBuf() {
+    private void refreshBuf(final LeClientService.LeClientServiceBinder binder) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 bufTv.setText(String.valueOf(binder.getCommandBufferSize()));
+                charaReadTv.setText(String.valueOf(binder.getCharacteristicReads()));
+                charaWriteTv.setText(String.valueOf(binder.getCharacteristicWrites()));
+                notificationsReceivedTv.setText(String.valueOf(binder.getNotificationsReceived()));
+                descReadTv.setText(String.valueOf(binder.getDescriptorReads()));
+                descWriteTv.setText(String.valueOf(binder.getDescriptorWrites()));
             }
         });
         
@@ -221,7 +242,7 @@ public class DeviceActivity extends AppCompatActivity {
         @Override
         public void onConnDiscovered() {
             Log.i(TAG, "onConnDiscovered()");
-    
+            binder.clearStat();
             binder.read(IntegerData.class, timeout);
             binder.setNotification(IntegerData.class, true, timeout);
             runOnUiThread(new Runnable() {
@@ -252,7 +273,7 @@ public class DeviceActivity extends AppCompatActivity {
          */
         @Override
         public void onComCommandQueued() {
-            refreshBuf();
+            refreshBuf(binder);
         }
         
         /**
@@ -264,7 +285,7 @@ public class DeviceActivity extends AppCompatActivity {
         @Override
         public void onComCommandSent(boolean success) {
             Log.v(TAG, "onComCommandSent() success: " + success);
-            refreshBuf();
+            refreshBuf(binder);
         }
     
         @Override
@@ -289,7 +310,7 @@ public class DeviceActivity extends AppCompatActivity {
                 IntegerData integerData = (IntegerData) leData;
                 sb.setProgress(integerData.getVal());
             }
-            refreshBuf();
+            refreshBuf(binder);
         }
         
         /**
@@ -304,7 +325,7 @@ public class DeviceActivity extends AppCompatActivity {
                 IntegerData integerData = (IntegerData) leData;
                 sb.setProgress(integerData.getVal());
             }
-            refreshBuf();
+            refreshBuf(binder);
         }
         
         /**
@@ -315,7 +336,7 @@ public class DeviceActivity extends AppCompatActivity {
         @Override
         public void onComWrite(LeData leData) {
             Log.v(TAG, "onComWrite() dataClass: " + leData.getClass().getSimpleName());
-            refreshBuf();
+            refreshBuf(binder);
         }
     }
     

@@ -2,4 +2,9 @@
     <string name="app_name">LeLibrary Client Demo</string>
     <string name="action_start_periodic_changes">Periodic changes</string>
     <string name="buffer_size_title">Buffer Size:</string>
+    <string name="chara_read_title">Characteristics read:</string>
+    <string name="chara_write_title">Characteristics written:</string>
+    <string name="notification_title">Notifications received:</string>
+    <string name="desc_read_title">Descriptor read:</string>
+    <string name="desc_write_title">Descriptor written:</string>
 </resources>

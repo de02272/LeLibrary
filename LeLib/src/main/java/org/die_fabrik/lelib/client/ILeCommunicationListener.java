@@ -16,11 +16,14 @@ public interface ILeCommunicationListener {
     /**
      * called when the last command (read/wrirte/setNotification)
      * was sent to the other side
+     *  @param success    whether the process was initiated successfully
      *
-     * @param success    whether the process was initiated successfully
-     * @param identifier the Identifier which was given by the Ui when initiating this command
      */
-    void onComCommandSent(boolean success, int identifier);
+    void onComCommandSent(boolean success);
+    
+    void onComCommandTimeout(LeClientService.QueuedCommand command);
+    
+    void onComLongNotificationIndicated(Class<? extends LeData> dataClass);
     
     /**
      * called when the client received a Notification with the LeData Object

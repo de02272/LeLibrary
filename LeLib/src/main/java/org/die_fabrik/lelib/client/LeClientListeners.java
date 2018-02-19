@@ -47,13 +47,33 @@ public class LeClientListeners {
             listener.onComCommandQueued();
     }
     
-    static void onComCommandSent(boolean success, int identifier) {
+    static void onComCommandSent(boolean success) {
         List<ILeCommunicationListener> listeners = new ArrayList<>();
         synchronized (connectionListeners) {
             listeners.addAll(communicationListeners);
         }
         for (ILeCommunicationListener listener : listeners) {
-            listener.onComCommandSent(success, identifier);
+            listener.onComCommandSent(success);
+        }
+    }
+    
+    public static void onComCommandTimeout(LeClientService.QueuedCommand command) {
+        List<ILeCommunicationListener> listeners = new ArrayList<>();
+        synchronized (connectionListeners) {
+            listeners.addAll(communicationListeners);
+        }
+        for (ILeCommunicationListener listener : listeners) {
+            listener.onComCommandTimeout(command);
+        }
+    }
+    
+    public static void onComLongNotificationIndicated(Class<? extends LeData> dataClass) {
+        List<ILeCommunicationListener> listeners = new ArrayList<>();
+        synchronized (connectionListeners) {
+            listeners.addAll(communicationListeners);
+        }
+        for (ILeCommunicationListener listener : listeners) {
+            listener.onComLongNotificationIndicated(dataClass);
         }
     }
     

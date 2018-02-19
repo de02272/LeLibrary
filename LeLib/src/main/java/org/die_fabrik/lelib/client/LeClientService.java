@@ -23,6 +23,7 @@ import android.util.Log;
 
 import org.die_fabrik.lelib.LeUtil;
 import org.die_fabrik.lelib.data.LeData;
+import org.die_fabrik.lelib.server.LeServerService;
 import org.die_fabrik.lelib.wrapper.LeCharacteristic;
 import org.die_fabrik.lelib.wrapper.LeProfile;
 import org.die_fabrik.lelib.wrapper.LeService;
@@ -30,6 +31,7 @@ import org.die_fabrik.lelib.wrapper.LeService;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -210,7 +212,6 @@ public abstract class LeClientService extends Service {
      */
     @Override
     public void onCreate() {
-        Log.v(TAG, "onCreate()");
         super.onCreate();
         bluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
         bluetoothAdapter = bluetoothManager.getAdapter();
@@ -299,7 +300,7 @@ public abstract class LeClientService extends Service {
                 gatt.disconnect();
                 gatt = null;
             }
-            queueManager.clearQueue();
+            queueManager.resetQueue();
             discoveredServices = null;
         }
     
@@ -313,8 +314,8 @@ public abstract class LeClientService extends Service {
          * @param dataClass the dataClass to read
          * @return whether the request was queued successfully
          */
-        public void read(Class<? extends LeData> dataClass, int identifier) {
-            QueuedRead queuedRead = new QueuedRead(dataClass, identifier);
+        public void read(Class<? extends LeData> dataClass, long timeout) {
+            QueuedRead queuedRead = new QueuedRead(dataClass, timeout);
             queueManager.addCommand(queuedRead);
         }
         
@@ -324,17 +325,17 @@ public abstract class LeClientService extends Service {
          * @param dataClass the dataClass to receive notifications
          * @param enable    true - request to enable, false request to disable
          */
-        public boolean setNotification(Class<? extends LeData> dataClass, boolean enable, int identifier) {
+        public boolean setNotification(Class<? extends LeData> dataClass, boolean enable, long timeout) {
             LeCharacteristic leCharacteristic = findLeCharacteristic(dataClass);
             if (leCharacteristic != null) {
                 if (leCharacteristic.getNotificationGattDescriptor() != null) {
                     UUID notificationDescriptorUuid = leCharacteristic.getNotificationGattDescriptor().getUuid();
     
                     if (enable) {
-                        QueuedEnableNotification queuedEnableNotification = new QueuedEnableNotification(dataClass, identifier);
+                        QueuedEnableNotification queuedEnableNotification = new QueuedEnableNotification(dataClass, timeout);
                         queueManager.addCommand(queuedEnableNotification);
                     } else {
-                        QueuedDisableNotification queuedDisableNotification = new QueuedDisableNotification(dataClass, identifier);
+                        QueuedDisableNotification queuedDisableNotification = new QueuedDisableNotification(dataClass, timeout);
                         queueManager.addCommand(queuedDisableNotification);
                     }
                     return true;
@@ -417,7 +418,7 @@ public abstract class LeClientService extends Service {
                 
                 leScanner.stopScan(leScanCallback);
             } else {
-                Log.wtf(TAG, "How could this happen");
+                Log.w(TAG, "Never started");
             }
             LeClientListeners.onScanStopped(scanResults);
         }
@@ -427,8 +428,8 @@ public abstract class LeClientService extends Service {
          *
          * @param leData the data to transport
          */
-        public void write(LeData leData, int identifier) {
-            QueuedWrite queuedWrite = new QueuedWrite(leData, identifier);
+        public void write(LeData leData, long timeout) {
+            QueuedWrite queuedWrite = new QueuedWrite(leData, timeout);
             queueManager.addCommand(queuedWrite);
         }
     }
@@ -531,8 +532,13 @@ public abstract class LeClientService extends Service {
             if (leCharacteristic != null) {
                 try {
                     byte[] leValue = characteristic.getValue();
-                    LeData leData = LeUtil.createLeDataFromLeValue(leValue, leCharacteristic.getDataClass());
-                    LeClientListeners.onComNotificationReceived(leData);
+                    if (Arrays.equals(leValue, LeServerService.LongNotification)) {
+                        Log.v(TAG, "server signalized a long notification");
+                        LeClientListeners.onComLongNotificationIndicated(leCharacteristic.getDataClass());
+                    } else {
+                        LeData leData = LeUtil.createLeDataFromLeValue(leValue, leCharacteristic.getDataClass());
+                        LeClientListeners.onComNotificationReceived(leData);
+                    }
                     
                 } catch (NoSuchMethodException | InvocationTargetException | InstantiationException | IllegalAccessException e) {
                     Log.e(TAG, "Failure during usage of Reflexion", e);
@@ -573,6 +579,9 @@ public abstract class LeClientService extends Service {
                 Log.e(TAG, "status!=GATT_SUCCESS");
             }
             QueuedCommand lastCommand = queueManager.nextCommand();
+            if (lastCommand != null) {
+                lastCommand.stopTimeout();
+            }
         }
         
         /**
@@ -618,6 +627,9 @@ public abstract class LeClientService extends Service {
                 Log.e(TAG, "status!=GATT_SUCCESS");
             }
             QueuedCommand lastCommand = queueManager.nextCommand();
+            if (lastCommand != null) {
+                lastCommand.stopTimeout();
+            }
         }
         
         /**
@@ -649,7 +661,7 @@ public abstract class LeClientService extends Service {
                     }
                 } else { // disconnected with a reason
                     LeClientListeners.onConnDisconnect();
-                    queueManager.clearQueue();
+                    queueManager.resetQueue();
                 }
             } else {
                 //TODO prüfen ob das reicht, oder ob außerdem noch LeClientListeners.onConnDisconnect(); aufgerufen werden muss.
@@ -669,6 +681,8 @@ public abstract class LeClientService extends Service {
         @Override
         public void onDescriptorRead(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
             super.onDescriptorRead(gatt, descriptor, status);
+            Log.v(TAG, "onDescriptorRead() descriptor: " + descriptor.getUuid()
+                    + ", status: " + LeUtil.getGattStatus(LeClientService.this, status));
         }
         
         /**
@@ -684,6 +698,9 @@ public abstract class LeClientService extends Service {
         public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
             super.onDescriptorWrite(gatt, descriptor, status);
             QueuedCommand lastCommand = queueManager.nextCommand();
+            if (lastCommand != null) {
+                lastCommand.stopTimeout();
+            }
         }
         
         /**
@@ -774,16 +791,6 @@ public abstract class LeClientService extends Service {
         }
         
         /**
-         * This method clear the commandQueue without sending these commands to the server
-         * This will be called when a connection disconnects
-         */
-        public void clearQueue() {
-            synchronized (queue) {
-                queue.clear();
-            }
-        }
-        
-        /**
          * this will cause the QueueManagerThread to execute the next command
          */
         QueuedCommand nextCommand() {
@@ -813,6 +820,17 @@ public abstract class LeClientService extends Service {
             if (lastCommand == null) {
                 nextCommand();
             }
+        }
+    
+        /**
+         * This method clear the commandQueue without sending these commands to the server
+         * This will be called when a connection disconnects
+         */
+        public void resetQueue() {
+            synchronized (queue) {
+                queue.clear();
+            }
+            lastCommand = null;
         }
         
         /**
@@ -851,7 +869,11 @@ public abstract class LeClientService extends Service {
                             lastCommand = queue.remove(0); // getting the oldest Object
                         }
                         boolean success = lastCommand.execute(gatt);
-                        LeClientListeners.onComCommandSent(success, lastCommand.getIdentifier());
+                        lastCommand.startTimeout();
+                        LeClientListeners.onComCommandSent(success);
+                        if (!success) {
+                            nextCommand();
+                        }
                     }
                     synchronized (lock) {
                         try {
@@ -872,14 +894,18 @@ public abstract class LeClientService extends Service {
          * The logging TAG for this Object
          */
         protected final String TAG = this.getClass().getSimpleName();
+        private final long timeout;
+        private final CommandTimeout timeoutTask;
         
         /**
          * The Identifier given by the calling ui thread
+         *
+         * @param timeout
          */
-        private final int identifier;
-        
-        protected QueuedCommand(int identifier) {
-            this.identifier = identifier;
+
+        private QueuedCommand(long timeout) {
+            this.timeout = timeout;
+            this.timeoutTask = new CommandTimeout();
         }
         
         /**
@@ -890,17 +916,39 @@ public abstract class LeClientService extends Service {
          * @return true, if the read operation was initiated successfully
          */
         abstract boolean execute(BluetoothGatt gatt);
+    
+    
+        private void startTimeout() {
+            timer.schedule(timeoutTask, timeout);
         
-        public int getIdentifier() {
-            return identifier;
+        }
+    
+        private void stopTimeout() {
+            timeoutTask.cancel();
+            timer.purge();
+        }
+    
+    
+        private class CommandTimeout extends TimerTask {
+        
+            /**
+             * The action to be performed by this timer task.
+             */
+            @Override
+            public void run() {
+                Log.e(TAG, "The timeout for the last sent command is achieved: ");
+            
+                LeClientListeners.onComCommandTimeout(QueuedCommand.this);
+                leClientServiceBinder.disconnect();
+            }
         }
     }
     
     private class QueuedRead extends QueuedCommand {
         private final Class<? extends LeData> dataClass;
-        
-        QueuedRead(Class<? extends LeData> dataClass, int identifier) {
-            super(identifier);
+    
+        QueuedRead(Class<? extends LeData> dataClass, long timeout) {
+            super(timeout);
             this.dataClass = dataClass;
         }
         
@@ -927,9 +975,9 @@ public abstract class LeClientService extends Service {
     
     private class QueuedWrite extends QueuedCommand {
         private final LeData leData;
-        
-        QueuedWrite(LeData leData, int identifier) {
-            super(identifier);
+    
+        QueuedWrite(LeData leData, long timeout) {
+            super(timeout);
             this.leData = leData;
         }
         
@@ -964,9 +1012,9 @@ public abstract class LeClientService extends Service {
     
     private class QueuedEnableNotification extends QueuedCommand {
         private final Class<? extends LeData> dataClass;
-        
-        QueuedEnableNotification(Class<? extends LeData> dataClass, int identifier) {
-            super(identifier);
+    
+        QueuedEnableNotification(Class<? extends LeData> dataClass, long timeout) {
+            super(timeout);
             this.dataClass = dataClass;
         }
         
@@ -999,9 +1047,9 @@ public abstract class LeClientService extends Service {
     
     private class QueuedDisableNotification extends QueuedCommand {
         private final Class<? extends LeData> dataClass;
-        
-        QueuedDisableNotification(Class<? extends LeData> dataClass, int identifier) {
-            super(identifier);
+    
+        QueuedDisableNotification(Class<? extends LeData> dataClass, long timeout) {
+            super(timeout);
             this.dataClass = dataClass;
         }
         

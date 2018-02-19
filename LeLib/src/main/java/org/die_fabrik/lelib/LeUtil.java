@@ -57,19 +57,22 @@ public class LeUtil {
     }
     
     public static LeData createLeDataFromLeValue(byte[] leValue, Class<? extends LeData> cls) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
-        /*Log.v("Reflexion", "instantiating a LeData object with cls: " + cls.getSimpleName());
-        logHexValue(leValue, "Reflexion");
-        Constructor<?>[] clss = cls.getConstructors();
+        //Log.v("Reflexion", "instantiating a LeData object with cls: " + cls.getSimpleName());
+    
+        LeData leData = null;
+        /*Constructor<?>[] clss = cls.getConstructors();
         for (Constructor<?> c : clss) {
-            Log.v("Reflexion", "name: " + c.getName());
-            Type[] ts = c.getGenericParameterTypes();
-            for (Type t : ts) {
-                Log.v("Reflexion", ""+t.toString());
-            }
+            Log.v("Reflexion", "constructor :"+c.toGenericString());
+            
         }*/
+        //logHexValue(leValue, "Reflexion");
         Constructor<? extends LeData> constructor = cls.getConstructor(byte[].class);
-        LeData a = constructor.newInstance(leValue);
-        return a;
+        if (constructor != null) {
+            //Log.v("Reflexion", "found a constructor");
+            leData = constructor.newInstance(leValue);
+        
+        }
+        return leData;
     }
     
     public static String getAdvertiseFailure(Context ctx, int errorCode) {
@@ -337,7 +340,7 @@ public class LeUtil {
         lines.add("adapter.isMultipleAdvertisementSupported(): " + adapter.isMultipleAdvertisementSupported());
         lines.add("adapter.isOffloadedFilteringSupported(): " + adapter.isOffloadedFilteringSupported());
         lines.add("adapter.isOffloadedScanBatchingSupported(): " + adapter.isOffloadedScanBatchingSupported());
-        if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             lines.addAll(logAdapterCapabilitiesExtended(adapter));
         }
         return lines.toArray(new String[lines.size()]);

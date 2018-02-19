@@ -2,15 +2,14 @@ package org.die_fabrik.lelib.wrapper;
 
 import android.util.Log;
 
-import java.util.UUID;
-
 /**
  * Created by Michael on 03.01.2018.
  */
 
 public abstract class LeAutoUuIdObject extends LeObject {
     
-    protected static final String CLIENT_CHARACTERISTIC_UUID = "00002902-0000-1000-8000-00805f9b34fb";
+    private static final String CLIENT_CHARACTERISTIC_UUID = "00002902-0000-1000-8000-00805f9b34fb";
+    private static final String CLIENT_CHARACTERISTIC_UUID_INTRO = "00002902";
     
     private final static String[] uuids = new String[]
             {"aa1ed291-8bc4-4a22-9095-a5db56fbbb9d",
@@ -115,7 +114,7 @@ public abstract class LeAutoUuIdObject extends LeObject {
     
     private static int uuidCnt = 0;
     protected final String TAG = this.getClass().getSimpleName();
-    private final UUID UUID;
+    private final java.util.UUID UUID;
     
     
     public LeAutoUuIdObject(String name, java.util.UUID UUID) {
@@ -131,13 +130,23 @@ public abstract class LeAutoUuIdObject extends LeObject {
         
     }
     
+    /*public static UUID getNextClientConfigUUID() {
+        return java.util.UUID.fromString("00002902");
+        if (uuidCnt >= uuids.length) {
+            throw new ArrayIndexOutOfBoundsException("The default uuid list is empty");
+        }
+        String s = uuids[uuidCnt];
+        StringBuilder sb = new StringBuilder();
+        //sb.append(s.substring(0,3));
+        sb.append(CLIENT_CHARACTERISTIC_UUID_INTRO);
+        sb.append(s.substring(8,s.length()));
+        UUID answer = java.util.UUID.fromString(sb.toString());
+        uuidCnt++;
+        return answer;
+    }*/
     
-    public static int getIndexOfUUID(UUID UUID) {
-        String s = UUID.toString();
-        return getIndexOfUuid(s);
-    }
     
-    public static int getIndexOfUuid(String uuid) {
+    private static int getIndexOfUuid(String uuid) {
         String tmp = null;
         for (int i = 0; i < uuids.length; i++) {
             tmp = uuids[i];
@@ -148,17 +157,21 @@ public abstract class LeAutoUuIdObject extends LeObject {
         return -1;
     }
     
-    public static UUID getNextUUID() {
+    public static java.util.UUID getNextUUID() {
         if (uuidCnt >= uuids.length) {
             throw new ArrayIndexOutOfBoundsException("The default uuid list is empty");
         }
-        UUID answer = java.util.UUID.fromString(uuids[uuidCnt]);
+        java.util.UUID answer = java.util.UUID.fromString(uuids[uuidCnt]);
         uuidCnt++;
         return answer;
     }
     
     public static int getUuidCnt() {
         return uuidCnt;
+    }
+    
+    public static void resetCounter() {
+        uuidCnt = 0;
     }
     
     public java.util.UUID getUUID() {

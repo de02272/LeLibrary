@@ -39,67 +39,66 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.UUID;
 
+import static android.bluetooth.BluetoothProfile.GATT_SERVER;
+
+/**
+ * TODO startAdvertiser um einen delay erweitern, damit die BLE mechanik Zeit zum nachdenken hat :-)
+ */
 public abstract class LeServerService extends Service {
-    
+    /**
+     * The notification for values which are too long. When the client receives this value, he should
+     * initiate a readRequest for the Characteristic dataClass
+     */
+    public static final byte[] LongNotification = new byte[]{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+            0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f};
     /**
      * The logging TAG for this Object
      */
     protected final String TAG = this.getClass().getSimpleName();
-    
     /**
      * The external published ServiceBinder
      * will be created during onBind, and destroyed during onUnbind
      */
     private LeServerBinder leServerBinder;
-    
     /**
      * TRhe system wide BluetoothManager, created durin gonCreate
      */
     private BluetoothManager bluetoothManager;
-    
     /**
      * The system wide BluetoothAdapter, created during onCreate()
      */
     private BluetoothAdapter bluetoothAdapter;
-    
     /**
      * A Timer Object to schedule any TimerTasks (Timeout, etc). Created during onCreate()
      */
     private Timer timer;
-    
     /**
      * The LeAdvertiserConfig Object which was used by the last start of the advertiser
      * necessary to restart the advertiser again
      * will be created in startAdvertiser and used in restartAdvertiser();
      */
     private LeAdvertiserConfig advertiserConfig;
-    
     /**
      * The bluetoothAdvertiser OIbject created durcing onCreate(). Will be
      * used to start the advertiosing process.
      */
     private BluetoothLeAdvertiser bluetoothAdvertiser;
-    
     /**
      * The callback object for the advertiser
      */
     private LeAdvertiserCallback leAdvertiseCallback;
-    
     /**
      * The callback object for the gatt server
      */
     private LeGattServerCallback leGattServerCallback;
-    
     /**
      * the Queue Manager for Notifications
      */
     private NotificationQueueManager notificationQueueManager;
-    
     /**
      * The Gatt Server Object. created during startGatt()
      */
     private BluetoothGattServer gattServer;
-    
     /**
      * The sessions list. Which clients are connected ?
      */
@@ -107,7 +106,12 @@ public abstract class LeServerService extends Service {
     /**
      * The timeout for an established connection, will be set during startGatt()
      */
-    private int sessionTimeout;
+    private long sessionTimeout;
+    
+    /**
+     * The timeout for a notification, will be set during startGatt;
+     */
+    private long notificationTimeout;
     
     /**
      * A Helper method to look for a Characteristic within the gattServer Object
@@ -165,20 +169,11 @@ public abstract class LeServerService extends Service {
         return null;
     }
     
-    
-    /**
-     * A Helper method to find a LeCharacteristic from LeProfile by the uuid of one of its descriptors
-     *
-     * @param uuid the uuid from the descriptor
-     * @return an instance od LeCharacteristic or null;
-     */
     private LeCharacteristic findLeCharacteristicByDescriptorUuid(UUID uuid) {
         for (LeService leService : getLeProfile().getLeServices()) {
             for (LeCharacteristic leCharacteristic : leService.getLeCharacteristics()) {
-                if (leCharacteristic.getNotificationGattDescriptor() != null) {
-                    if (leCharacteristic.getNotificationGattDescriptor().getUuid().equals(uuid)) {
-                        return leCharacteristic;
-                    }
+                if (leCharacteristic.getNotificationGattDescriptor().getUuid().equals(uuid)) {
+                    return leCharacteristic;
                 }
             }
         }
@@ -229,18 +224,18 @@ public abstract class LeServerService extends Service {
      */
     @Override
     public void onCreate() {
-        Log.v(TAG, "onCreate()");
         super.onCreate();
         bluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
         assert bluetoothManager != null;
         bluetoothAdapter = bluetoothManager.getAdapter();
         bluetoothAdvertiser = bluetoothAdapter.getBluetoothLeAdvertiser();
-    
+        
         timer = new Timer();
         LeUtil.logLines(LeUtil.logAdapterCapabilities(bluetoothAdapter), TAG);
         leAdvertiseCallback = new LeAdvertiserCallback();
         leGattServerCallback = new LeGattServerCallback();
         notificationQueueManager = new NotificationQueueManager();
+        leSessions.clear();
     }
     
     /**
@@ -289,7 +284,6 @@ public abstract class LeServerService extends Service {
         Log.v(TAG, "restarting Advertiser");
         leServerBinder.stopAdvertising();
         leServerBinder.startAdvertising(advertiserConfig);
-        
     }
     
     /**
@@ -308,16 +302,17 @@ public abstract class LeServerService extends Service {
          * The logging TAG for this Object
          */
         protected final String TAG = this.getClass().getSimpleName();
-    
+        
+        
         public void clearNotifications() {
             notificationQueueManager.clearQueue();
-        
+            
         }
         
         public void disconnect(BluetoothDevice bluetoothDevice) {
             Log.v(TAG, "disconnect");
         }
-    
+        
         public UUID[] getAdvertisingUuids() {
             return getLeProfile().getAdvertisingUuids();
         }
@@ -332,8 +327,8 @@ public abstract class LeServerService extends Service {
             }
             return devices.toArray(new BluetoothDevice[devices.size()]);
         }
-    
-    
+        
+        
         public int getNotificationBufferSize() {
             return notificationQueueManager.queue.size();
         }
@@ -350,18 +345,19 @@ public abstract class LeServerService extends Service {
             byte[] leValue = new byte[0];
             try {
                 leValue = leData.createLeValue();
-                Log.e(TAG, "preparing a Notification Response for " + leData.getClass().getSimpleName());
-                LeUtil.logHexValue(leValue, TAG);
+                //Log.v(TAG, "preparing a Notification Response for " + leData.getClass().getSimpleName());
+                //LeUtil.logHexValue(leValue, TAG);
                 int n = 0;
                 for (LeSession leSession : leSessions) {
-                    if (leSession.getDevice() != excludeDevice) {
+                    if (excludeDevice == null || (!leSession.getDevice().getAddress().equals(excludeDevice.getAddress()))) {
                         if (leSession.notificationClasses.contains(leData.getClass())) {
                             notificationQueueManager.addCommand(new Notification(leData.getClass(), leValue, leSession.getDevice()));
+                            //Log.v(TAG, "notification: " + leData.getClass().getSimpleName() + " to: " + leSession.getDevice().getAddress());
                             n++;
                         }
                     }
                 }
-                Log.e(TAG, "queued " + n + " notifications of class " + leData.getClass());
+                //Log.e(TAG, "queued " + n + " notifications of class " + leData.getClass());
                 return true;
             } catch (UnsupportedEncodingException e) {
                 e.printStackTrace();
@@ -374,18 +370,17 @@ public abstract class LeServerService extends Service {
             Log.i(TAG, "startAdvertising()");
             if (bluetoothAdvertiser != null) {
                 if (config == null) {
-                    int z = 0;
                     throw new IllegalArgumentException("Missing LeAdvertiserConfig");
                 } else {
                     bluetoothAdapter.setName(config.getBluetoothName());
-    
+                    
                     AdvertiseSettings settings = new AdvertiseSettings.Builder()
                             .setAdvertiseMode(config.getAdvertiseMode())
                             .setTimeout(config.getTimeout())
                             .setConnectable(config.isConnectible())
                             .setTxPowerLevel(config.getTxPowerLevel())
                             .build();
-    
+                    
                     AdvertiseData.Builder dataBuilder1 = new AdvertiseData.Builder();
                     if (getLeProfile() != null && getLeProfile().getAdvertisingUuids() != null) {
                         for (UUID adUuid : getLeProfile().getAdvertisingUuids()) {
@@ -393,8 +388,8 @@ public abstract class LeServerService extends Service {
                         }
                     }
                     dataBuilder1.setIncludeDeviceName(config.isIncludeDeviceName());
-    
-    
+                    
+                    
                     AdvertiseData scanResponse;
                     if (config.getPayload() != null) {
                         scanResponse = new AdvertiseData.Builder()
@@ -406,32 +401,39 @@ public abstract class LeServerService extends Service {
                                 .setIncludeTxPowerLevel(false)
                                 .build();
                     }
-    
-    
+                    
+                    
                     bluetoothAdvertiser.startAdvertising(settings, dataBuilder1.build(), scanResponse, leAdvertiseCallback);
                     advertiserConfig = config; // for the next restart
-    
+                    
                 }
             } else {
                 Log.e(TAG, "This device is not capable to do advertising");
             }
         }
         
-        public void startGatt(int sessionTimeout) {
+        public void startGatt(long sessionTimeout, long notificationTimeout) {
             Log.i(TAG, "startGatt");
+            LeServerService.this.notificationTimeout = notificationTimeout;
             
             LeServerService.this.sessionTimeout = sessionTimeout;
             
             gattServer = bluetoothManager.openGattServer(LeServerService.this, leGattServerCallback);
+            
             List<BluetoothGattService> loadedServices = gattServer.getServices();
+            //Log.v(TAG, "already loaded services: "+loadedServices.size());
             for (LeService leService : getLeProfile().getLeServices()) {
                 BluetoothGattService service = leService.getBluetoothGattService();
                 if (!loadedServices.contains(service)) {
                     gattServer.addService(service);
+                    //Log.v(TAG, "add service: "+leService.getName());
                 }
             }
             // TODO implement the reload of already connected devices (give them a session)
-            //gattServer.getConnectedDevices();
+            List<BluetoothDevice> a = bluetoothManager.getConnectedDevices(GATT_SERVER);
+            for (BluetoothDevice device : a) {
+                Log.v(TAG, "connected to: " + device.getAddress());
+            }
         }
         
         public void stopAdvertising() {
@@ -481,7 +483,6 @@ public abstract class LeServerService extends Service {
         @Override
         public void onStartSuccess(AdvertiseSettings settingsInEffect) {
             super.onStartSuccess(settingsInEffect);
-            Log.v(TAG, "onAdvertiserStartSuccess with " + settingsInEffect);
             LeServerListeners.onAdvertiserStartSuccess(settingsInEffect);
         }
     }
@@ -525,12 +526,17 @@ public abstract class LeServerService extends Service {
                     if (offset == 0) { // new request
                         
                         try {
+                            Log.d(TAG, "found LeCharacteristic: " + leCharacteristic.getName() + ", dataClass: " + leCharacteristic.getDataClass().getSimpleName());
                             LeData leData = LeServerService.this.getLeData(leCharacteristic.getDataClass(), leSession.getDevice());
                             if (leData != null) {
                                 leValue = leData.createLeValue();
+                                LeUtil.logHexValue(leValue, TAG);
+                                leSession.getOutgoingCharacteristic().setLeValue(leValue);
+                                answerStatus = BluetoothGatt.GATT_SUCCESS;
+                            } else {
+                                Log.e(TAG, "failure during reflexion");
                             }
-                            leSession.getOutgoingCharacteristic().setLeValue(leValue);
-                            answerStatus = BluetoothGatt.GATT_SUCCESS;
+                            
                         } catch (UnsupportedEncodingException e) {
                             e.printStackTrace();
                         }
@@ -549,8 +555,8 @@ public abstract class LeServerService extends Service {
             Log.v(TAG, "sending Response to the ReadRequest for device: " + device
                     + ", requestId: " + requestId + ", status: "
                     + LeUtil.getGattStatus(LeServerService.this, answerStatus)
-                    + ", offset: " + answerOffset + ", leValue.length: " + leValue.length);
-            LeUtil.logHexValue(leValue, TAG);
+                    + ", offset: " + answerOffset + ", leValue.length: " + (leValue != null ? leValue.length : "null") + ", queueLength: " + notificationQueueManager.queue.size());
+            //LeUtil.logHexValue(leValue, TAG);
             gattServer.sendResponse(device, requestId, answerStatus, answerOffset, leValue);
         }
         
@@ -583,13 +589,13 @@ public abstract class LeServerService extends Service {
             LeSession leSession = findLeSession(device);
             if (leSession != null) {
                 leSession.timeoutProlongation();
-    
+                
                 LeCharacteristic leCharacteristic = findLeCharacteristic(characteristic.getUuid());
                 if (leCharacteristic != null) {
                     
                     if (preparedWrite) {
                         if (offset == 0) {
-                            Log.v(TAG, "received first part of a multi part message");
+                            Log.i(TAG, "received first part of a multi part message");
                             leSession.getIncomingCharacteristic().clear();
                             leSession.getIncomingCharacteristic().setLeCharacteristic(leCharacteristic);
                             leSession.getIncomingCharacteristic().addLeValue(value);
@@ -619,15 +625,15 @@ public abstract class LeServerService extends Service {
                 Log.e(TAG, "no session found for device: " + device);
                 answerOffset = 0;
             }
-    
+            
             Log.v(TAG, "sending Response to the WriteRequest for device: " + device
                     + ", requestId: " + requestId + ", status: "
                     + LeUtil.getGattStatus(LeServerService.this, answerStatus)
-                    + ", offset: " + answerOffset + ", leValue.length: " + leValue.length);
-            LeUtil.logHexValue(leValue, TAG);
+                    + ", offset: " + answerOffset + ", leValue.length: " + leValue.length + ", queueLength: " + notificationQueueManager.queue.size());
+            //LeUtil.logHexValue(leValue, TAG);
             
             gattServer.sendResponse(device, requestId, answerStatus, answerOffset, leValue);
-    
+            
             if (answerStatus == BluetoothGatt.GATT_SUCCESS) {
                 if (!preparedWrite) {
                     LeServerListeners.onGattWritten(leData, leSession.getDevice());
@@ -687,7 +693,7 @@ public abstract class LeServerService extends Service {
         public void onDescriptorReadRequest(BluetoothDevice device, int requestId, int offset, BluetoothGattDescriptor descriptor) {
             super.onDescriptorReadRequest(device, requestId, offset, descriptor);
             Log.v(TAG, "onDescriptorReadRequest(device: " + device + ", requestId: " + requestId +
-                    " descriptor: " + descriptor.getUuid().toString() + ", offset: " + offset + ")");
+                    " descriptor: " + descriptor.getUuid().toString() + ", offset: " + offset + ")" + ", queueLength: " + notificationQueueManager.queue.size());
         }
         
         /**
@@ -711,47 +717,50 @@ public abstract class LeServerService extends Service {
             Log.v(TAG, "onDescriptorWriteRequest(device: " + device + ", requestId: " + requestId +
                     " descriptor: " + descriptor.getUuid().toString() + ", preparedWrite: " + preparedWrite +
                     ", responseNeeded: " + responseNeeded + ", offset: " + offset + ", value.length: " + value.length + ")");
-    
+            
             byte[] leValue = value;
             int answerStatus = BluetoothGatt.GATT_FAILURE;
             int answerOffset = offset;
-    
+            
             LeSession leSession = findLeSession(device);
             if (leSession != null) {
                 leSession.timeoutProlongation();
+                
                 LeCharacteristic leCharacteristic = findLeCharacteristicByDescriptorUuid(descriptor.getUuid());
+                //Log.v(TAG, "leCharacteristic: " + leCharacteristic.getName()+" with UUID: "+descriptor.getCharacteristic().getUuid());
+                
                 if (leCharacteristic != null) {
                     if (Arrays.equals(value, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)) {
                         // enable notification
-                        if (!leSession.getNotificationClasses().contains(leCharacteristic.getDataClass())) {
-                            leSession.addNotificationClass(leCharacteristic.getDataClass());
-                            Log.v(TAG, "notification enabled for device: " + leSession.getDevice() + ", and dataClass: " + leCharacteristic.getDataClass().getSimpleName());
-                        }
+                        leSession.addNotificationClass(leCharacteristic.getDataClass());
+                        Log.e(TAG, "notification enabled for device: " + leSession.getDevice()
+                                + ", LeCharacteristic: " + leCharacteristic.getName()
+                                + ", and dataClass: " + leCharacteristic.getDataClass().getSimpleName());
                         answerStatus = BluetoothGatt.GATT_SUCCESS;
                     } else if (Arrays.equals(value, BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE)) {
                         // disable notification
                         if (leSession.getNotificationClasses().contains(leCharacteristic.getDataClass())) {
                             leSession.removeNotificationClass(leCharacteristic.getDataClass());
-                            Log.v(TAG, "notification disabled for device: " + leSession.getDevice() + ", and dataClass: " + leCharacteristic.getDataClass().getSimpleName());
+                            Log.e(TAG, "notification disabled for device: " + leSession.getDevice() + ", and dataClass: " + leCharacteristic.getDataClass().getSimpleName());
                         }
                         answerStatus = BluetoothGatt.GATT_SUCCESS;
                     } else {
                         Log.e(TAG, "what for?");
                     }
-    
+                    
                 } else {
                     Log.e(TAG, "no LeCharacteristic found for Descriptor UUID: " + descriptor.getUuid().toString());
                 }
             } else {
                 Log.e(TAG, "no session found for device: " + device);
             }
-    
+            
             Log.v(TAG, "send response for DescriptorWriteRequest to device: " + device + ", requestId: " + requestId
                     + ", answerStatus: " + LeUtil.getGattStatus(LeServerService.this, answerStatus)
-                    + ", answerOffset: " + answerOffset + ", leValue.length: " + leValue.length);
+                    + ", answerOffset: " + answerOffset + ", leValue.length: " + leValue.length + ", queueLength: " + notificationQueueManager.queue.size());
             
-            LeUtil.logHexValue(leValue, TAG);
-    
+            //LeUtil.logHexValue(leValue, TAG);
+            
             gattServer.sendResponse(device, requestId, answerStatus, answerOffset, leValue);
         }
         
@@ -780,12 +789,12 @@ public abstract class LeServerService extends Service {
                 
                 if (execute) {
                     try {
-    
+                        
                         leValue = leSession.getIncomingCharacteristic().getLeValue();
-    
+                        
                         LeData leData = LeUtil.createLeDataFromLeValue(leSession.getIncomingCharacteristic().getLeValue(), leSession.getIncomingCharacteristic().getLeCharacteristic().getDataClass());
                         LeServerListeners.onGattWritten(leData, leSession.getDevice());
-    
+                        
                         if (leSession.getIncomingCharacteristic().getLeCharacteristic().getNotification() == ELeNotification.NOTIFICATION_WITH_AUTO_REPLY) {
                             Log.v(TAG, "sending auto replay for " + leSession.getIncomingCharacteristic().getLeCharacteristic().getName());
                             leServerBinder.sendNotification(leData, leSession.getDevice());
@@ -802,11 +811,26 @@ public abstract class LeServerService extends Service {
                 Log.e(TAG, "no session found for device: " + device);
                 answerOffset = 0;
             }
-    
+            
             Log.v(TAG, "send response for ExecuteWrite to device: " + device + ", requestId: " + requestId
                     + ", answerStatus: " + LeUtil.getGattStatus(LeServerService.this, answerStatus)
-                    + ", answerOffset: " + answerOffset + ", leValue.length: " + leValue.length);
+                    + ", answerOffset: " + answerOffset + ", leValue.length: " + leValue.length + ", queueLength: " + notificationQueueManager.queue.size());
             gattServer.sendResponse(device, requestId, answerStatus, answerOffset, leValue);
+        }
+        
+        /**
+         * Callback indicating the MTU for a given device connection has changed.
+         * <p>
+         * <p>This callback will be invoked if a remote client has requested to change
+         * the MTU for a given connection.
+         *
+         * @param device The remote device that requested the MTU change
+         * @param mtu    The new MTU size
+         */
+        @Override
+        public void onMtuChanged(BluetoothDevice device, int mtu) {
+            super.onMtuChanged(device, mtu);
+            Log.v(TAG, "onMtuChanged() device: " + device.getAddress() + ", mtu: " + mtu);
         }
         
         /**
@@ -824,15 +848,55 @@ public abstract class LeServerService extends Service {
         public void onNotificationSent(BluetoothDevice device, int status) {
             super.onNotificationSent(device, status);
             Log.v(TAG, "onNotificationSent() for device: " + device
-                    + ", status: " + LeUtil.getGattStatus(LeServerService.this, status));
+                    + ", status: " + LeUtil.getGattStatus(LeServerService.this, status) + ", queueLength: " + notificationQueueManager.queue.size());
             
             LeSession leSession = findLeSession(device);
             if (leSession != null) {
                 leSession.timeoutProlongation();
+                if (notificationQueueManager.getLastNotification() != null) {
+                    notificationQueueManager.getLastNotification().stopTimeout();
+                }
             } else {
                 Log.v(TAG, "no session found for sent notification");
             }
             notificationQueueManager.nextNotification();
+        }
+        
+        /**
+         * Callback triggered as result of {@link BluetoothGattServer#readPhy}
+         *
+         * @param device The remote device that requested the PHY read
+         * @param txPhy  the transmitter PHY in use. One of {@link BluetoothDevice#PHY_LE_1M},
+         *               {@link BluetoothDevice#PHY_LE_2M}, and {@link BluetoothDevice#PHY_LE_CODED}
+         * @param rxPhy  the receiver PHY in use. One of {@link BluetoothDevice#PHY_LE_1M},
+         *               {@link BluetoothDevice#PHY_LE_2M}, and {@link BluetoothDevice#PHY_LE_CODED}
+         * @param status Status of the PHY read operation.
+         *               {@link BluetoothGatt#GATT_SUCCESS} if the operation succeeds.
+         */
+        @Override
+        public void onPhyRead(BluetoothDevice device, int txPhy, int rxPhy, int status) {
+            super.onPhyRead(device, txPhy, rxPhy, status);
+            Log.v(TAG, "onPhyRead() device: " + device + ", txPhy: " + txPhy + ", rxPhy: "
+                    + rxPhy + ", status: " + LeUtil.getGattStatus(LeServerService.this, status));
+        }
+        
+        /**
+         * Callback triggered as result of {@link BluetoothGattServer#setPreferredPhy}, or as a result
+         * of remote device changing the PHY.
+         *
+         * @param device The remote device
+         * @param txPhy  the transmitter PHY in use. One of {@link BluetoothDevice#PHY_LE_1M},
+         *               {@link BluetoothDevice#PHY_LE_2M}, and {@link BluetoothDevice#PHY_LE_CODED}
+         * @param rxPhy  the receiver PHY in use. One of {@link BluetoothDevice#PHY_LE_1M},
+         *               {@link BluetoothDevice#PHY_LE_2M}, and {@link BluetoothDevice#PHY_LE_CODED}
+         * @param status Status of the PHY update operation.
+         *               {@link BluetoothGatt#GATT_SUCCESS} if the operation succeeds.
+         */
+        @Override
+        public void onPhyUpdate(BluetoothDevice device, int txPhy, int rxPhy, int status) {
+            super.onPhyUpdate(device, txPhy, rxPhy, status);
+            Log.v(TAG, "onPhyUpdate() device: " + device + ", txPhy: " + txPhy + ", rxPhy: "
+                    + rxPhy + ", status: " + LeUtil.getGattStatus(LeServerService.this, status));
         }
         
         /**
@@ -849,7 +913,6 @@ public abstract class LeServerService extends Service {
                     + ", service: " + service.getUuid().toString() + ", type: " + LeUtil.getServiceType(service.getType()));
         }
     }
-    
     
     /**
      * This class manages the serialization of commands
@@ -901,7 +964,9 @@ public abstract class LeServerService extends Service {
          * @param queuedCommand the command to push in queue
          */
         synchronized void addCommand(Notification queuedCommand) {
-            Log.v(TAG, "adding " + queuedCommand.getClass().getSimpleName() + " to the queue at position: " + queue.size());
+            if (queue.size() > 3) {
+                Log.i(TAG, "adding " + queuedCommand.cls.getSimpleName() + " to the queue at position: " + queue.size());
+            }
             synchronized (queue) {
                 queue.add(queuedCommand);
             }
@@ -920,6 +985,9 @@ public abstract class LeServerService extends Service {
             lastNotification = null;
         }
         
+        public Notification getLastNotification() {
+            return lastNotification;
+        }
         
         /**
          * this will cause the NotificationQueueManagerThread to execute the next command
@@ -927,14 +995,14 @@ public abstract class LeServerService extends Service {
          * @return the last notification which was sent
          */
         Notification nextNotification() {
-            if (queue.size() > 0) {
+            /*if (queue.size() > 0) {
                 Log.v(TAG, "nextNotification() will sent next Notification");
             } else {
                 Log.v(TAG, "nextNotification() nothing to do - will fall asleep");
-            }
+            }*/
             
             Notification answer = lastNotification;
-    
+            
             lastNotification = null;
             wakeUp();
             return answer;
@@ -987,7 +1055,7 @@ public abstract class LeServerService extends Service {
             public void run() {
                 Log.v(TAG, "entering the loop");
                 while (!isInterrupted()) {
-    
+                    
                     if (lastNotification == null && queue.size() > 0) {
                         synchronized (queue) {
                             lastNotification = queue.remove(0);
@@ -1010,28 +1078,59 @@ public abstract class LeServerService extends Service {
         }
     }
     
+    private class NotificationTimeout extends TimerTask {
+        
+        /**
+         * The action to be performed by this timer task.
+         */
+        @Override
+        public void run() {
+            Log.e(TAG, "Notification timeout achieved - will send next notification");
+            notificationQueueManager.nextNotification();
+        }
+    }
+    
     private class Notification {
         private final Class<? extends LeData> cls;
         private final byte[] leValue;
         private final BluetoothDevice device;
-    
+        private final NotificationTimeout notificationTimeoutTask;
+        
         private Notification(Class<? extends LeData> cls, byte[] leValue, BluetoothDevice device) {
             this.cls = cls;
             this.leValue = leValue;
             this.device = device;
+            notificationTimeoutTask = new NotificationTimeout();
         }
-    
+        
         private boolean execute(BluetoothGattServer gattServer) {
             BluetoothGattCharacteristic characteristic = findGattCharacteristic(gattServer, cls);
             if (characteristic != null) {
-                characteristic.setValue(leValue);
-                Log.v(TAG, "sending a notification of type: " + cls.getSimpleName() + " to device: " + device);
-                LeUtil.logHexValue(leValue, TAG);
-                return gattServer.notifyCharacteristicChanged(device, characteristic, false); // an indication will be true
+                if (leValue.length > 20) {
+                    Log.v(TAG, "the notification length exceeds the maximum od 20 bytes. will send a LongNotification answer (the client should read the characteristic by himself");
+                    characteristic.setValue(LongNotification);
+                } else {
+                    //Log.v(TAG, "sending a notification of type: " + cls.getSimpleName() + " to device: " + device);
+                    characteristic.setValue(leValue);
+                }
+                //LeUtil.logHexValue(leValue, TAG);
+                boolean answer = gattServer.notifyCharacteristicChanged(device, characteristic, true); // an indication will be true
+                startTimeout();
+                return answer;
             } else {
                 Log.e(TAG, "can not send notification cause there is no registered characteristic to transport the data from type: " + cls.getSimpleName());
             }
             return false;
+        }
+        
+        private void startTimeout() {
+            timer.schedule(notificationTimeoutTask, notificationTimeout);
+            
+        }
+        
+        private void stopTimeout() {
+            notificationTimeoutTask.cancel();
+            timer.purge();
         }
     }
     
@@ -1053,13 +1152,15 @@ public abstract class LeServerService extends Service {
             if (!notificationClasses.contains(cls)) {
                 notificationClasses.add(cls);
                 Log.v(TAG, "session for device: " + getDevice() + " has " + notificationClasses.size() + " notifications enabled");
+            } else {
+                Log.w(TAG, "" + cls.getSimpleName() + " for " + device.getAddress() + " already enabled");
             }
         }
         
         BluetoothDevice getDevice() {
             return device;
         }
-    
+        
         LeValues getIncomingCharacteristic() {
             return incomingCharacteristic;
         }
@@ -1067,7 +1168,7 @@ public abstract class LeServerService extends Service {
         List<Class<? extends LeData>> getNotificationClasses() {
             return notificationClasses;
         }
-    
+        
         LeValues getOutgoingCharacteristic() {
             return outgoingCharacteristic;
         }
@@ -1124,11 +1225,10 @@ public abstract class LeServerService extends Service {
     private class LeValues {
         private final List<byte[]> leValues = new ArrayList<>();
         private int leValuesLength = 0;
-        private byte[] leValue;
         private LeCharacteristic leCharacteristic;
         
         private LeValues() {
-        
+            // intentionally left blank
         }
         
         private void addLeValue(byte[] leValue) {
@@ -1142,12 +1242,12 @@ public abstract class LeServerService extends Service {
             leValues.clear();
             leValuesLength = 0;
         }
-    
-    
+        
+        
         public LeCharacteristic getLeCharacteristic() {
             return leCharacteristic;
         }
-    
+        
         public void setLeCharacteristic(LeCharacteristic leCharacteristic) {
             this.leCharacteristic = leCharacteristic;
         }

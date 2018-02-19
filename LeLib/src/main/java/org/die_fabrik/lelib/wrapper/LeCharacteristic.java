@@ -64,7 +64,7 @@ public class LeCharacteristic extends LeAutoUuIdObject {
         }
         
         if ((notification != ELeNotification.NONE) && bluetoothGattCharacteristic != null) {
-            notificationGattDescriptor = new BluetoothGattDescriptor(java.util.UUID.fromString(CLIENT_CHARACTERISTIC_UUID), BluetoothGattDescriptor.PERMISSION_WRITE);
+            notificationGattDescriptor = new BluetoothGattDescriptor(getNextUUID(), BluetoothGattDescriptor.PERMISSION_WRITE);
             bluetoothGattCharacteristic.addDescriptor(notificationGattDescriptor);
         } else {
             notificationGattDescriptor = null;
@@ -118,7 +118,7 @@ public class LeCharacteristic extends LeAutoUuIdObject {
                 Log.v(tag, "*    permissions: " + LeUtil.getCharacteristicPermissions(ctx, descriptor.getPermissions()));
             }
         } else {
-            Log.i(TAG, "no descriptor");
+            Log.i(tag, "*    no descriptor");
         }
     }
 }

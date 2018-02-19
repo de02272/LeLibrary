@@ -13,7 +13,7 @@ public class LeProfileBuilder {
         return new LeProfile(name, leServices);
     }
     
-    public LeProfileBuilder setLeServices(LeService ... leServices) {
+    public LeProfileBuilder setLeServices(LeService... leServices) {
         LeUtil.checkExistence(leServices);
         
         this.leServices = leServices;

@@ -8,6 +8,8 @@ import java.nio.ByteBuffer;
  */
 
 public abstract class LeData {
+    protected final static byte TrueValue = 1;
+    protected final static byte FalseValue = 0;
     /**
      * The Charset to use for De/Encoding Jobs
      */
@@ -17,12 +19,16 @@ public abstract class LeData {
      */
     protected final String TAG = this.getClass().getSimpleName();
     private byte[] leValue;
-    //TODO check whether its better to handle the ecxeption here?
+    
     public LeData(byte[] leValue) throws UnsupportedEncodingException {
         this.leValue = leValue;
         if (leValue != null) {
             constructLeData(leValue);
         }
+    }
+    
+    public LeData() {
+        // intentionally left blank
     }
     
     /**
@@ -43,10 +49,6 @@ public abstract class LeData {
         return leValue;
     }
     
-    public LeData() {
-        // intentionally left blank
-    }
-    
     /**
      * a helper method to get a String from a ByteBuffer
      *
@@ -54,26 +56,26 @@ public abstract class LeData {
      * @return a String
      * @throws UnsupportedEncodingException by any problems regarding the String encoding
      */
-    protected String getString(ByteBuffer bb) throws UnsupportedEncodingException {
+    protected String getStringFromBuffer(ByteBuffer bb) throws UnsupportedEncodingException {
         int l = bb.getInt();
         byte[] ba = new byte[l];
-        bb.get(ba, bb.position(), l);
+        bb.get(ba, 0, l);
         return new String(ba, CHARSET);
     }
     
     /**
      * a helper method to put a string into a ByteBuffer
      *
-     * @param bb the byteBuffer to put the String into
-     * @param s  the string to wrap in the ByteBuffer
+     * @param s the string to wrap in the ByteBuffer
      * @return the ByteBuffer which contains the String
      * @throws UnsupportedEncodingException by any problems regarding the String encoding
      */
-    protected ByteBuffer putString(ByteBuffer bb, String s) throws UnsupportedEncodingException {
+    protected byte[] putStringToNewBuffer(String s) throws UnsupportedEncodingException {
         byte[] ba = s.getBytes(CHARSET);
+        ByteBuffer bb = ByteBuffer.allocate(ba.length + (Integer.SIZE / Byte.SIZE));
         bb.putInt(ba.length);
         bb.put(ba);
-        return bb;
+        return bb.array();
     }
     
 }

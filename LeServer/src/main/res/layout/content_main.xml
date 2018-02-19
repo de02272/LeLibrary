@@ -9,20 +9,14 @@
     tools:context="org.die_fabrik.ledemo.server.ui.ServerActivity"
     tools:showIn="@layout/activity_main">
 
-    <LinearLayout
+
+    <TableLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:layout_height="match_parent">
 
-        <LinearLayout
+        <TableRow
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-
-            android:gravity="start"
-            android:orientation="horizontal"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            >
+            android:layout_height="match_parent">
 
             <TextView
                 android:layout_width="wrap_content"
@@ -32,18 +26,105 @@
 
             <TextView
                 android:id="@+id/buffer_size_tv"
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
 
+                />
+        </TableRow>
 
+        <TableRow
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/chara_read_title"
                 />
 
-        </LinearLayout>
+            <TextView
+                android:id="@+id/chara_read_tv"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
 
-        <LinearLayout
+                />
+        </TableRow>
+
+        <TableRow
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:orientation="horizontal">
+            android:layout_height="match_parent">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/chara_write_title"
+                />
+
+            <TextView
+                android:id="@+id/chara_write_tv"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+
+                />
+        </TableRow>
+
+        <TableRow
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/notification_title"
+                />
+
+            <TextView
+                android:id="@+id/notification_tv"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+
+                />
+        </TableRow>
+
+        <TableRow
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/desc_read_title"
+                />
+
+            <TextView
+                android:id="@+id/desc_read_tv"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+
+                />
+        </TableRow>
+
+        <TableRow
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/desc_write_title"
+                />
+
+            <TextView
+                android:id="@+id/desc_write_tv"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+
+                />
+        </TableRow>
+
+        <TableRow
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
 
             <TextView
 
@@ -56,10 +137,13 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 />
-        </LinearLayout>
+        </TableRow>
 
+        <TableRow
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"/>
+    </TableLayout>
 
-    </LinearLayout>
 
     <SeekBar
         android:id="@+id/sb"

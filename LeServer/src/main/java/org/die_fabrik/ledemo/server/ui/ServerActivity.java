@@ -49,6 +49,11 @@ public class ServerActivity extends AppCompatActivity implements ILeDataProvider
     private TextView bufTv;
     private TextView adTv;
     private AdvertisingListener advertListener;
+    private TextView charaReadTv;
+    private TextView charaWriteTv;
+    private TextView notificationsSentTv;
+    private TextView descReadTv;
+    private TextView descWriteTv;
     
     @Override
     public LeData getLeData(Class<? extends LeData> dataClass, BluetoothDevice bluetoothDevice) {
@@ -72,6 +77,12 @@ public class ServerActivity extends AppCompatActivity implements ILeDataProvider
         sb = (SeekBar) findViewById(R.id.sb);
         adTv = (TextView) findViewById(R.id.ad_uuids_tv);
         bufTv = (TextView) findViewById(R.id.buffer_size_tv);
+    
+        charaReadTv = (TextView) findViewById(R.id.chara_read_tv);
+        charaWriteTv = (TextView) findViewById(R.id.chara_write_tv);
+        notificationsSentTv = (TextView) findViewById(R.id.notification_tv);
+        descReadTv = (TextView) findViewById(R.id.desc_read_tv);
+        descWriteTv = (TextView) findViewById(R.id.desc_write_tv);
         
         
         sb.setOnSeekBarChangeListener(new OnSbChangedListener());
@@ -119,7 +130,7 @@ public class ServerActivity extends AppCompatActivity implements ILeDataProvider
                 if (task == null) {
                     Log.v(TAG, "start periodic");
                     task = new PeriodicNotification(0, 0, 100, 1);
-                    timer.schedule(task, 0, 100);
+                    timer.schedule(task, 0, 200);
                 } else {
                     Log.v(TAG, "stop periodic");
                     task.cancel();
@@ -140,6 +151,11 @@ public class ServerActivity extends AppCompatActivity implements ILeDataProvider
             @Override
             public void run() {
                 bufTv.setText(String.valueOf(binder.getNotificationBufferSize()));
+                charaReadTv.setText(String.valueOf(binder.getCharacteristicReads()));
+                charaWriteTv.setText(String.valueOf(binder.getCharacteristicWrites()));
+                notificationsSentTv.setText(String.valueOf(binder.getNotificationsSent()));
+                descReadTv.setText(String.valueOf(binder.getDescriptorReads()));
+                descWriteTv.setText(String.valueOf(binder.getDescriptorWrites()));
             }
         });
         
@@ -179,7 +195,7 @@ public class ServerActivity extends AppCompatActivity implements ILeDataProvider
                     down = true;
                 }
             }
-            Log.v(TAG, "periodic change " + n);
+            //Log.v(TAG, "periodic change " + n);
             overRideFromUser = true;
             sb.setProgress(n);
             act = n;
@@ -200,7 +216,7 @@ public class ServerActivity extends AppCompatActivity implements ILeDataProvider
                     .setIncludeDeviceName(true).create();
             
             binder.startAdvertising(cfg);
-            binder.startGatt(0, 5000);
+            binder.startGatt(10 * 60 * 1000, 5000);
             
             Log.i(TAG, "Bluetooth LE Services onServiceConnected");
     
@@ -248,7 +264,7 @@ public class ServerActivity extends AppCompatActivity implements ILeDataProvider
          */
         @Override
         public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-            Log.v(TAG, "onProgressChanged( progress: " + progress + ", fromUser: " + fromUser);
+            //Log.v(TAG, "onProgressChanged( progress: " + progress + ", fromUser: " + fromUser+")");
             if (fromUser || overRideFromUser) {
                 IntegerData integerData = new IntegerData(progress);
                 binder.sendNotification(integerData, null);
@@ -306,7 +322,7 @@ public class ServerActivity extends AppCompatActivity implements ILeDataProvider
         }
         
         @Override
-        public void onGattNotificationQueued() {
+        public void onGattNotificationQueued(int size) {
             refreshBuf();
             
         }
@@ -314,6 +330,11 @@ public class ServerActivity extends AppCompatActivity implements ILeDataProvider
         @Override
         public void onGattNotificationSent() {
             refreshBuf();
+        }
+    
+        @Override
+        public void onGattReconnected(BluetoothDevice device) {
+            Log.v(TAG, "onReconnect");
         }
         
         @Override

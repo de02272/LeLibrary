@@ -4,4 +4,9 @@
     <string name="buffer_size_title">Notification Buffer Size:</string>
     <string name="advertising_uuids_title">Advertising Uuids:</string>
     <string name="host_address_title">Host Address:</string>
+    <string name="chara_read_title">Characteristics read:</string>
+    <string name="chara_write_title">Characteristics written:</string>
+    <string name="notification_title">Notifications sent:</string>
+    <string name="desc_read_title">Descriptor read:</string>
+    <string name="desc_write_title">Descriptor written:</string>
 </resources>

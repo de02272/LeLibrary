@@ -109,6 +109,31 @@ public abstract class LeClientService extends Service {
     private LeScanTimeout leScanTimeout;
     
     /**
+     * The number of reads for this instance
+     */
+    private int CHARA_READ = 0;
+    
+    /**
+     * The number of Writes for this instance
+     */
+    private int CHARA_WRITE = 0;
+    
+    /**
+     * the number of Notifications for this instance
+     */
+    private int NOTIFICATIONS_RECEIVED = 0;
+    
+    /**
+     * The number of Descriptor Reads for this instance
+     */
+    private int DESC_READ = 0;
+    
+    /**
+     * The number of descriptor Writes for this object
+     */
+    private int DESC_WRITE;
+    
+    /**
      * Helper method to find a characteristic by its UUID from the discovered Services.
      *
      * @param uuId the UUID to look for
@@ -264,6 +289,14 @@ public abstract class LeClientService extends Service {
          */
         private final String TAG = this.getClass().getSimpleName();
     
+        public void clearStat() {
+            CHARA_READ = 0;
+            CHARA_WRITE = 0;
+            NOTIFICATIONS_RECEIVED = 0;
+            DESC_READ = 0;
+            DESC_WRITE = 0;
+        }
+        
         /**
          * @param deviceAddress the max address
          * @param timeout       the timeout to establish this connection
@@ -305,8 +338,29 @@ public abstract class LeClientService extends Service {
             discoveredServices = null;
         }
     
+        public int getCharacteristicReads() {
+            return CHARA_READ;
+        }
+    
+        public int getCharacteristicWrites() {
+            return CHARA_WRITE;
+        }
+        
         public int getCommandBufferSize() {
             return queueManager.queue.size();
+        }
+    
+        public int getDescriptorReads() {
+            return DESC_READ;
+        }
+    
+        public int getDescriptorWrites() {
+            return DESC_WRITE;
+        
+        }
+    
+        public int getNotificationsReceived() {
+            return NOTIFICATIONS_RECEIVED;
         }
         
         /**
@@ -528,6 +582,7 @@ public abstract class LeClientService extends Service {
         @Override
         public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
             super.onCharacteristicChanged(gatt, characteristic);
+            NOTIFICATIONS_RECEIVED++;
             Log.v(TAG, "onCharacteristicChanged characteristic: " + characteristic.getUuid().toString());
             LeCharacteristic leCharacteristic = findLeCharacteristic(characteristic.getUuid());
             if (leCharacteristic != null) {
@@ -560,6 +615,7 @@ public abstract class LeClientService extends Service {
         @Override
         public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
             super.onCharacteristicRead(gatt, characteristic, status);
+            CHARA_READ++;
             Log.v(TAG, "onCharacteristicRead characteristic: " + characteristic.getUuid().toString()
                     + ", status: " + LeUtil.getGattStatus(LeClientService.this, status));
             if (status == BluetoothGatt.GATT_SUCCESS) {
@@ -603,6 +659,7 @@ public abstract class LeClientService extends Service {
         @Override
         public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
             super.onCharacteristicWrite(gatt, characteristic, status);
+            CHARA_WRITE++;
             Log.v(TAG, "onCharacteristicWrite characteristic: " + characteristic.getUuid().toString() +
                     ", status: " + LeUtil.getGattStatus(LeClientService.this, status)
                     + ", value.length: " + characteristic.getValue().length +
@@ -682,6 +739,7 @@ public abstract class LeClientService extends Service {
         @Override
         public void onDescriptorRead(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
             super.onDescriptorRead(gatt, descriptor, status);
+            DESC_READ++;
             Log.v(TAG, "onDescriptorRead() descriptor: " + descriptor.getUuid()
                     + ", status: " + LeUtil.getGattStatus(LeClientService.this, status));
         }
@@ -698,6 +756,7 @@ public abstract class LeClientService extends Service {
         @Override
         public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
             super.onDescriptorWrite(gatt, descriptor, status);
+            DESC_WRITE++;
             QueuedCommand lastCommand = queueManager.nextCommand();
             if (lastCommand != null) {
                 lastCommand.stopTimeout();
@@ -920,8 +979,12 @@ public abstract class LeClientService extends Service {
     
     
         private void startTimeout() {
-            timer.schedule(timeoutTask, timeout);
-        
+            if (timer != null) {
+                timer.schedule(timeoutTask, timeout);
+            } else {
+                Log.e(TAG, "can not start timeout for Queued Command");
+            }
+            
         }
     
         private void stopTimeout() {
@@ -938,7 +1001,7 @@ public abstract class LeClientService extends Service {
             @Override
             public void run() {
                 Log.e(TAG, "The timeout for the last sent command is achieved: ");
-            
+    
                 LeClientListeners.onComCommandTimeout(QueuedCommand.this);
                 leClientServiceBinder.disconnect();
             }

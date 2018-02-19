@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">LeLibrary</string>
+    <string name="app_name">LeLib</string>
     <string name="start_error_prefix">Start Advertising failed: </string>
     <string name="start_error_already_started">already started.</string>
     <string name="start_error_too_large">relayData packet exceeded 31 Byte limit.</string>

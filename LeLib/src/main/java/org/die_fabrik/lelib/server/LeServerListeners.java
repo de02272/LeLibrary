@@ -85,13 +85,13 @@ public class LeServerListeners {
         }
     }
     
-    public static void onGattNotificationQueued() {
+    public static void onGattNotificationQueued(int size) {
         List<ILeGattListener> listeners = new ArrayList<>();
         synchronized (gattListeners) {
             listeners.addAll(gattListeners);
         }
         for (ILeGattListener listener : listeners) {
-            listener.onGattNotificationQueued();
+            listener.onGattNotificationQueued(size);
         }
     }
     
@@ -102,6 +102,16 @@ public class LeServerListeners {
         }
         for (ILeGattListener listener : listeners) {
             listener.onGattNotificationSent();
+        }
+    }
+    
+    public static void onGattReconnected(BluetoothDevice device) {
+        List<ILeGattListener> listeners = new ArrayList<>();
+        synchronized (gattListeners) {
+            listeners.addAll(gattListeners);
+        }
+        for (ILeGattListener listener : listeners) {
+            listener.onGattReconnected(device);
         }
     }
     

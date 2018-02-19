@@ -13,9 +13,11 @@ public interface ILeGattListener {
     
     void onGattDisconnected(BluetoothDevice device);
     
-    void onGattNotificationQueued();
+    void onGattNotificationQueued(int size);
     
     void onGattNotificationSent();
+    
+    void onGattReconnected(BluetoothDevice device);
     
     void onGattWritten(LeData leData, BluetoothDevice device);
     

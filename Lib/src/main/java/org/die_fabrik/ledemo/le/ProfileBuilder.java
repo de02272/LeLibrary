@@ -6,6 +6,7 @@ import android.content.Context;
 import org.die_fabrik.ledemo.le.data.IntegerData;
 import org.die_fabrik.lelib.wrapper.ELeCharacteristicAccess;
 import org.die_fabrik.lelib.wrapper.ELeNotification;
+import org.die_fabrik.lelib.wrapper.LeAutoUuIdObject;
 import org.die_fabrik.lelib.wrapper.LeCharacteristic;
 import org.die_fabrik.lelib.wrapper.LeProfile;
 import org.die_fabrik.lelib.wrapper.LeService;
@@ -28,6 +29,8 @@ public class ProfileBuilder {
      * @throws Exception
      */
     public LeProfile buildProfile(Context ctx) {
+        LeAutoUuIdObject.resetCounter(); // the base class of auto uuid objects
+        
         LeCharacteristic c0 = LeCharacteristic.getBuilder()
                 .setName("INTEGER VALUE")
                 .setAccess(ELeCharacteristicAccess.BOTH)

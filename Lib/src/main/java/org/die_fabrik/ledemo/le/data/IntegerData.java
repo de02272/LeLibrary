@@ -13,6 +13,7 @@ public class IntegerData extends LeData {
     private int val;
     
     public IntegerData(int val) {
+        super();
         this.val = val;
     }
     
@@ -28,7 +29,8 @@ public class IntegerData extends LeData {
     @Override
     public void constructLeData(byte[] leValue) throws UnsupportedEncodingException {
         ByteBuffer bb = ByteBuffer.wrap(leValue);
-        this.val = bb.getInt();
+        byte b = bb.get();
+        this.val = b;
     }
     
     /**
@@ -38,8 +40,8 @@ public class IntegerData extends LeData {
      */
     @Override
     public byte[] createLeValue() throws UnsupportedEncodingException {
-        ByteBuffer bb = ByteBuffer.allocate(Integer.SIZE / Byte.SIZE /*+ tmpData.length*/);
-        bb.putInt(val);
+        ByteBuffer bb = ByteBuffer.allocate(1/*Integer.SIZE / Byte.SIZE */);
+        bb.put((byte) val);
         return bb.array();
     }
     

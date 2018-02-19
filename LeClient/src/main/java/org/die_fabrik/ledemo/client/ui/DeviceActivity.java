@@ -25,6 +25,7 @@ import java.util.Timer;
 import java.util.TimerTask;
 
 public class DeviceActivity extends AppCompatActivity {
+    private final static long timeout = 5000;
     private final String TAG = this.getClass().getSimpleName();
     private LeClientService.LeClientServiceBinder binder;
     private String deviceAddress;
@@ -39,7 +40,7 @@ public class DeviceActivity extends AppCompatActivity {
     private TextView bufTv;
     
     private void connect() {
-        binder.connect(deviceAddress, 5000);
+        binder.connect(deviceAddress, timeout);
     }
     
     /**
@@ -182,7 +183,7 @@ public class DeviceActivity extends AppCompatActivity {
             if (fromUser || overRideFromUser) {
                 IntegerData integerData = new IntegerData(progress);
                 overRideFromUser = false;
-                binder.write(integerData, 1);
+                binder.write(integerData, timeout);
             }
             tv.setText(String.valueOf(progress));
         }
@@ -220,9 +221,9 @@ public class DeviceActivity extends AppCompatActivity {
         @Override
         public void onConnDiscovered() {
             Log.i(TAG, "onConnDiscovered()");
-            
-            binder.read(IntegerData.class, 2);
-            binder.setNotification(IntegerData.class, true, 3);
+    
+            binder.read(IntegerData.class, timeout);
+            binder.setNotification(IntegerData.class, true, timeout);
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
@@ -258,13 +259,22 @@ public class DeviceActivity extends AppCompatActivity {
          * called when the last command (read/wrirte/setNotification)
          * was sent to the other side
          *
-         * @param success    whether the process was initiated successfully
-         * @param identifier the Identifier which was given by the Ui when initiating this command
+         * @param success whether the process was initiated successfully
          */
         @Override
-        public void onComCommandSent(boolean success, int identifier) {
-            Log.v(TAG, "onComCommandSent() success: " + success + ", identifier: " + identifier);
+        public void onComCommandSent(boolean success) {
+            Log.v(TAG, "onComCommandSent() success: " + success);
             refreshBuf();
+        }
+    
+        @Override
+        public void onComCommandTimeout(LeClientService.QueuedCommand command) {
+        
+        }
+    
+        @Override
+        public void onComLongNotificationIndicated(Class<? extends LeData> dataClass) {
+        
         }
         
         /**

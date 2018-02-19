@@ -200,7 +200,7 @@ public class ServerActivity extends AppCompatActivity implements ILeDataProvider
                     .setIncludeDeviceName(true).create();
             
             binder.startAdvertising(cfg);
-            binder.startGatt(0);
+            binder.startGatt(0, 5000);
             
             Log.i(TAG, "Bluetooth LE Services onServiceConnected");
     

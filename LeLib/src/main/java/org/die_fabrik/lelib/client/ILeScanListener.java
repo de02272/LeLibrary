@@ -6,6 +6,7 @@ import java.util.List;
 
 /**
  * Created by Michael on 11.01.2018.
+ * Scan Listener (Client side)
  */
 
 public interface ILeScanListener {

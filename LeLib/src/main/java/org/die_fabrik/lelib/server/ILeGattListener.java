@@ -6,6 +6,7 @@ import org.die_fabrik.lelib.data.LeData;
 
 /**
  * Created by Michael on 12.01.2018.
+ * Gatt Listener interface (server side)
  */
 
 public interface ILeGattListener {

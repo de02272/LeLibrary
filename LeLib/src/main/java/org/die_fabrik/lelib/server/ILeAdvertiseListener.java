@@ -4,6 +4,8 @@ import android.bluetooth.le.AdvertiseSettings;
 
 /**
  * Created by Michael on 12.01.2018.
+ *
+ * The Listener Interface for the advertiser service
  */
 
 public interface ILeAdvertiseListener {

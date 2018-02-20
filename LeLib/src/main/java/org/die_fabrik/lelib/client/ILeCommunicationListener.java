@@ -4,6 +4,7 @@ import org.die_fabrik.lelib.data.LeData;
 
 /**
  * Created by Michael on 11.01.2018.
+ * The interface for a communication listener(client side)
  */
 
 public interface ILeCommunicationListener {

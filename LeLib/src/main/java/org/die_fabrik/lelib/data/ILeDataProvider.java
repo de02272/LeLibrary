@@ -4,6 +4,7 @@ import android.bluetooth.BluetoothDevice;
 
 /**
  * Created by Michael on 13.01.2018.
+ * The interface for a data provider
  */
 
 public interface ILeDataProvider {

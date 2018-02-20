@@ -24,6 +24,7 @@ import android.util.Log;
 import org.die_fabrik.lelib.LeUtil;
 import org.die_fabrik.lelib.data.LeData;
 import org.die_fabrik.lelib.server.LeServerService;
+import org.die_fabrik.lelib.wrapper.ELeNotification;
 import org.die_fabrik.lelib.wrapper.LeCharacteristic;
 import org.die_fabrik.lelib.wrapper.LeProfile;
 import org.die_fabrik.lelib.wrapper.LeService;
@@ -132,6 +133,10 @@ public abstract class LeClientService extends Service {
      * The number of descriptor Writes for this object
      */
     private int DESC_WRITE;
+    /**
+     * The timeout for read commands which are fired by a long Notification
+     */
+    private long autoReadLongNotificationTimeout;
     
     /**
      * Helper method to find a characteristic by its UUID from the discovered Services.
@@ -299,14 +304,15 @@ public abstract class LeClientService extends Service {
         
         /**
          * @param deviceAddress the max address
-         * @param timeout       the timeout to establish this connection
+         * @param connectionTimeout       the timeout to establish this connection
          * @return true when the request to connect was queued successfully
          */
-        public boolean connect(String deviceAddress, long timeout) {
-            Log.e(TAG, "connect to: " + deviceAddress + " for " + timeout + " ms");
+        public boolean connect(String deviceAddress, long connectionTimeout, long autoReadLongNotificationTimeout) {
+            Log.e(TAG, "connect to: " + deviceAddress + " for " + connectionTimeout + " ms");
+            LeClientService.this.autoReadLongNotificationTimeout = autoReadLongNotificationTimeout;
             BluetoothDevice device = bluetoothAdapter.getRemoteDevice(deviceAddress);
             if (device != null) {
-                return connect(device, timeout);
+                return connect(device, connectionTimeout);
             }
             return false;
         }
@@ -316,9 +322,9 @@ public abstract class LeClientService extends Service {
          *
          * @return whether the request was queued successfully
          */
-        public boolean connect(BluetoothDevice device, long timeout) {
+        public boolean connect(BluetoothDevice device, long connectionTimeout) {
             leConnectionTimeout = new LeConnectionTimeout();
-            timer.schedule(leConnectionTimeout, timeout);
+            timer.schedule(leConnectionTimeout, connectionTimeout);
             gatt = device.connectGatt(LeClientService.this, false, leGattCallback);
             return gatt != null;
         }
@@ -380,17 +386,15 @@ public abstract class LeClientService extends Service {
          * @param dataClass the dataClass to receive notifications
          * @param enable    true - request to enable, false request to disable
          */
-        public boolean setNotification(Class<? extends LeData> dataClass, boolean enable, long timeout) {
+        public boolean setNotification(Class<? extends LeData> dataClass, boolean enable, long setNotificationTimeout) {
             LeCharacteristic leCharacteristic = findLeCharacteristic(dataClass);
             if (leCharacteristic != null) {
                 if (leCharacteristic.getNotificationGattDescriptor() != null) {
-                    UUID notificationDescriptorUuid = leCharacteristic.getNotificationGattDescriptor().getUuid();
-    
                     if (enable) {
-                        QueuedEnableNotification queuedEnableNotification = new QueuedEnableNotification(dataClass, timeout);
+                        QueuedEnableNotification queuedEnableNotification = new QueuedEnableNotification(dataClass, setNotificationTimeout);
                         queueManager.addCommand(queuedEnableNotification);
                     } else {
-                        QueuedDisableNotification queuedDisableNotification = new QueuedDisableNotification(dataClass, timeout);
+                        QueuedDisableNotification queuedDisableNotification = new QueuedDisableNotification(dataClass, setNotificationTimeout);
                         queueManager.addCommand(queuedDisableNotification);
                     }
                     return true;
@@ -589,8 +593,14 @@ public abstract class LeClientService extends Service {
                 try {
                     byte[] leValue = characteristic.getValue();
                     if (Arrays.equals(leValue, LeServerService.LongNotification)) {
-                        Log.v(TAG, "server signalized a long notification");
-                        LeClientListeners.onComLongNotificationIndicated(leCharacteristic.getDataClass());
+    
+                        if (leCharacteristic.getNotification() == ELeNotification.NOTIFICATION_WITH_AUTO_REPLY) {
+                            Log.v(TAG, "server signalized a long notification - will read the characteristic");
+                            leClientServiceBinder.read(leCharacteristic.getDataClass(), autoReadLongNotificationTimeout);
+                        } else {
+                            Log.v(TAG, "server signalized a long notification - will fire callback");
+                            LeClientListeners.onComLongNotificationIndicated(leCharacteristic.getDataClass());
+                        }
                     } else {
                         LeData leData = LeUtil.createLeDataFromLeValue(leValue, leCharacteristic.getDataClass());
                         LeClientListeners.onComNotificationReceived(leData);
@@ -671,8 +681,6 @@ public abstract class LeClientService extends Service {
                     try {
                         byte[] leValue = characteristic.getValue();
                         LeData leData = LeUtil.createLeDataFromLeValue(leValue, leCharacteristic.getDataClass());
-                        // TODO if this is a reliable transaction - we havbe to check the value against the value from lastCommand
-                        // I'm not clear how to abort this transaction?
                         LeClientListeners.onComWrite(leData);
                         
                     } catch (NoSuchMethodException | InvocationTargetException | InstantiationException | IllegalAccessException e) {
@@ -713,16 +721,14 @@ public abstract class LeClientService extends Service {
                     if (discovering) {
                         LeClientListeners.onConnDiscovering();
                     } else {
-                        // TODO ist das nötig?
-                        LeClientListeners.onConnDisconnect();
                         leClientServiceBinder.disconnect();
+                        LeClientListeners.onConnDisconnect();
                     }
                 } else { // disconnected with a reason
                     LeClientListeners.onConnDisconnect();
                     queueManager.resetQueue();
                 }
             } else {
-                //TODO prüfen ob das reicht, oder ob außerdem noch LeClientListeners.onConnDisconnect(); aufgerufen werden muss.
                 leClientServiceBinder.disconnect();
                 LeClientListeners.onConnDisconnect();
             }
@@ -785,7 +791,6 @@ public abstract class LeClientService extends Service {
             } else {
                 Log.e(TAG, "something was wrong - will disconnect");
                 leClientServiceBinder.disconnect();
-                // TODO is it necessary to do the callback here, would disconnect() do the same in onConnectionStateChanged?
                 LeClientListeners.onConnDisconnect();
             }
         }

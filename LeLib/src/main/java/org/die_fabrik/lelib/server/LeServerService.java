@@ -207,9 +207,9 @@ public abstract class LeServerService extends Service {
      * @return a LeSession Object or null
      */
     private LeSession findLeSession(BluetoothDevice device) {
-        Log.v(TAG, "find LeSession Object with address: " + device.getAddress() + "in a list with " + leSessions.size() + " session stored");
+        //Log.v(TAG, "find LeSession Object with address: " + device.getAddress() + "in a list with " + leSessions.size() + " session stored");
         for (LeSession leSession : leSessions) {
-            Log.v(TAG, "address: " + leSession.getDevice().getAddress());
+            //Log.v(TAG, "address: " + leSession.getDevice().getAddress());
             if (leSession.getDevice().getAddress().equals(device.getAddress())) {
                 return leSession;
             }
@@ -474,10 +474,12 @@ public abstract class LeServerService extends Service {
                     //Log.v(TAG, "add service: "+leService.getName());
                 }
             }
-            // TODO implement the reload of already connected devices (give them a session)
-            List<BluetoothDevice> a = bluetoothManager.getConnectedDevices(GATT_SERVER);
-            for (BluetoothDevice device : a) {
-                Log.v(TAG, "connected to: " + device.getAddress());
+            List<BluetoothDevice> connectedDevices = bluetoothManager.getConnectedDevices(GATT_SERVER);
+            for (BluetoothDevice device : connectedDevices) {
+                Log.v(TAG, "reconnect to: " + device.getAddress());
+                /*LeSession leSession = new LeSession(device, sessionTimeout);
+                registerSession(leSession);
+                LeServerListeners.onGattReconnected(device);*/
             }
         }
         
@@ -545,7 +547,6 @@ public abstract class LeServerService extends Service {
          * to complete the request.
          * <p>
          * <p>
-         * TODO cause we do not know when it's over, we can not trigger a LeServerListener callback? How to handle that?
          *
          * @param device         The remote device that has requested the read operation
          * @param requestId      The Id of the request
@@ -686,7 +687,6 @@ public abstract class LeServerService extends Service {
                     LeServerListeners.onGattWritten(leData, leSession.getDevice());
                 }
             } else {
-                // TODO any kind of failure message?
                 LeServerListeners.onGattWrittenFailure(leData, leSession.getDevice());
             }
         }

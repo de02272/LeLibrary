@@ -101,7 +101,7 @@ public class LeUtil {
         
     }
     
-    public static final String getCharacteristicPermissions(Context ctx, int perm) {
+    public static String getCharacteristicPermissions(Context ctx, int perm) {
         StringBuilder sb = new StringBuilder();
         translateItem(sb, perm, BluetoothGattCharacteristic.PERMISSION_READ, ctx.getString(R.string.gatt_characteristic_permission_read));
         translateItem(sb, perm, BluetoothGattCharacteristic.PERMISSION_READ_ENCRYPTED, ctx.getString(R.string.gatt_characteristic_permission_read_encrypted));
@@ -114,7 +114,7 @@ public class LeUtil {
         return sb.toString();
     }
     
-    public static final String getDescriptorPermissions(Context ctx, int perm) {
+    public static String getDescriptorPermissions(Context ctx, int perm) {
         StringBuilder sb = new StringBuilder();
         translateItem(sb, perm, BluetoothGattDescriptor.PERMISSION_READ, ctx.getString(R.string.gatt_descriptor_permission_read));
         translateItem(sb, perm, BluetoothGattDescriptor.PERMISSION_READ_ENCRYPTED, ctx.getString(R.string.gatt_descriptor_permission_read_encrypted));
@@ -209,7 +209,7 @@ public class LeUtil {
         return s + "(" + status + ")";
     }
     
-    public static final String getProperties(Context ctx, int prop) {
+    public static String getProperties(Context ctx, int prop) {
         StringBuilder sb = new StringBuilder();
         translateItem(sb, prop, BluetoothGattCharacteristic.PROPERTY_BROADCAST, ctx.getString(R.string.gatt_characteristic_property_broadcast));
         translateItem(sb, prop, BluetoothGattCharacteristic.PROPERTY_READ, ctx.getString(R.string.gatt_characteristic_property_read));
@@ -370,13 +370,12 @@ public class LeUtil {
         }
     }
     
-    private static final void translateItem(StringBuilder sb, int prop, int comp, String val) {
+    private static void translateItem(StringBuilder sb, int prop, int comp, String val) {
         if ((prop & comp) > 0) {
             if (sb.length() > 0) {
                 sb.append(" | ");
             }
             sb.append(val).append(" (").append(comp).append(")");
-            ;
         }
     }
     

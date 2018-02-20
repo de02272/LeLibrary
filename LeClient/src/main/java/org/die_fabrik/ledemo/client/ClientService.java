@@ -6,6 +6,7 @@ import org.die_fabrik.lelib.wrapper.LeProfile;
 
 /**
  * Created by Michael on 12.01.2018.
+ * The overloaded client service
  */
 
 public class ClientService extends LeClientService {

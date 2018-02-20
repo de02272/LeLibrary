@@ -45,7 +45,7 @@ public class DeviceActivity extends AppCompatActivity {
     private TextView charaReadTv;
     
     private void connect() {
-        binder.connect(deviceAddress, timeout);
+        binder.connect(deviceAddress, timeout, timeout);
     }
     
     /**
@@ -63,22 +63,24 @@ public class DeviceActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         timer = new Timer();
         setContentView(R.layout.activity_device);
-        bufTv = (TextView) findViewById(R.id.buffer_size_tv);
+        bufTv = findViewById(R.id.buffer_size_tv);
         bufTv.setText("0");
-        tv = (TextView) findViewById(R.id.tv);
-        sb = (SeekBar) findViewById(R.id.sb);
+        tv = findViewById(R.id.tv);
+        sb = findViewById(R.id.sb);
         sb.setEnabled(false);
         sb.setOnSeekBarChangeListener(new OnSbChangedListener());
     
-        charaReadTv = (TextView) findViewById(R.id.chara_read_tv);
-        charaWriteTv = (TextView) findViewById(R.id.chara_write_tv);
-        notificationsReceivedTv = (TextView) findViewById(R.id.notification_tv);
-        descReadTv = (TextView) findViewById(R.id.desc_read_tv);
-        descWriteTv = (TextView) findViewById(R.id.desc_write_tv);
+        charaReadTv = findViewById(R.id.chara_read_tv);
+        charaWriteTv = findViewById(R.id.chara_write_tv);
+        notificationsReceivedTv = findViewById(R.id.notification_tv);
+        descReadTv = findViewById(R.id.desc_read_tv);
+        descWriteTv = findViewById(R.id.desc_write_tv);
         
         
         deviceAddress = getIntent().getStringExtra(ScanActivity.DEVICE_ADDRESS);
-        getSupportActionBar().setSubtitle("Device: " + deviceAddress);
+        if (getSupportActionBar() != null) {
+            getSupportActionBar().setSubtitle("Device: " + deviceAddress);
+        }
         serviceConnection = new ServiceConnection();
         Intent intent = new Intent(this, ClientService.class);
         bindService(intent, serviceConnection, BIND_AUTO_CREATE);
@@ -98,6 +100,10 @@ public class DeviceActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (task != null) {
+            task.cancel();
+            timer.purge();
+        }
         if (binder != null) {
             binder.disconnect();
         }
@@ -295,6 +301,7 @@ public class DeviceActivity extends AppCompatActivity {
     
         @Override
         public void onComLongNotificationIndicated(Class<? extends LeData> dataClass) {
+            binder.read(dataClass, 5000);
         
         }
         
@@ -341,14 +348,14 @@ public class DeviceActivity extends AppCompatActivity {
     }
     
     private class PeriodicNotification extends TimerTask {
-        protected final String TAG = this.getClass().getSimpleName();
+        private final String TAG = this.getClass().getSimpleName();
         private final int step;
         private final int max;
         private final int min;
         private int act;
         private boolean down = false;
-        
-        public PeriodicNotification(int start, int min, int max, int step) {
+    
+        private PeriodicNotification(int start, int min, int max, int step) {
             this.act = start;
             this.min = min;
             this.max = max;
@@ -360,7 +367,7 @@ public class DeviceActivity extends AppCompatActivity {
          */
         @Override
         public void run() {
-            int n = 0;
+            int n;
             if (down) {
                 n = act - step;
                 if (n < min) {

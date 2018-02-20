@@ -1,2 +1,2 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="org.die_fabrik.ledemo"/>
+<manifest
+    package="org.die_fabrik.ledemo"/>

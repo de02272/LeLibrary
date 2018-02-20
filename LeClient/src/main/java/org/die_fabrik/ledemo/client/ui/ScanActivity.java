@@ -79,8 +79,8 @@ public class ScanActivity extends AppCompatActivity {
         
         setContentView(R.layout.activity_scan);
         getSupportActionBar().setSubtitle("Scan devices");
-        deviceList = (ListView) findViewById(R.id.device_lv);
-        srl = (SwipeRefreshLayout) findViewById(R.id.device_srl);
+        deviceList = findViewById(R.id.device_lv);
+        srl = findViewById(R.id.device_srl);
         listAdapter = new ArrayAdapter<String>(this, R.layout.device_entry, R.id.device_tv, devices);
         deviceList.setAdapter(listAdapter);
         deviceList.setOnItemClickListener(new OnDeviceClickListener());

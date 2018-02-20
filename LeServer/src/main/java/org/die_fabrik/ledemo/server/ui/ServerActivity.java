@@ -71,18 +71,18 @@ public class ServerActivity extends AppCompatActivity implements ILeDataProvider
         super.onCreate(savedInstanceState);
         timer = new Timer();
         setContentView(R.layout.activity_main);
-        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
-        tv = (TextView) findViewById(R.id.tv);
-        sb = (SeekBar) findViewById(R.id.sb);
-        adTv = (TextView) findViewById(R.id.ad_uuids_tv);
-        bufTv = (TextView) findViewById(R.id.buffer_size_tv);
+        tv = findViewById(R.id.tv);
+        sb = findViewById(R.id.sb);
+        adTv = findViewById(R.id.ad_uuids_tv);
+        bufTv = findViewById(R.id.buffer_size_tv);
     
-        charaReadTv = (TextView) findViewById(R.id.chara_read_tv);
-        charaWriteTv = (TextView) findViewById(R.id.chara_write_tv);
-        notificationsSentTv = (TextView) findViewById(R.id.notification_tv);
-        descReadTv = (TextView) findViewById(R.id.desc_read_tv);
-        descWriteTv = (TextView) findViewById(R.id.desc_write_tv);
+        charaReadTv = findViewById(R.id.chara_read_tv);
+        charaWriteTv = findViewById(R.id.chara_write_tv);
+        notificationsSentTv = findViewById(R.id.notification_tv);
+        descReadTv = findViewById(R.id.desc_read_tv);
+        descWriteTv = findViewById(R.id.desc_write_tv);
         
         
         sb.setOnSeekBarChangeListener(new OnSbChangedListener());
@@ -110,6 +110,10 @@ public class ServerActivity extends AppCompatActivity implements ILeDataProvider
     
     @Override
     protected void onDestroy() {
+        if (binder != null) {
+            binder.stopAdvertising();
+            binder.stopGatt();
+        }
         LeServerListeners.unregisterListener(advertListener);
         LeServerListeners.unregisterListener(gattListener);
         unbindService(serviceConnection);

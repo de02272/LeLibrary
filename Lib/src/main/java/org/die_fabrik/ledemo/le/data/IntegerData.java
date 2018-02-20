@@ -7,6 +7,7 @@ import java.nio.ByteBuffer;
 
 /**
  * Created by Michael on 13.01.2018.
+ *
  */
 
 public class IntegerData extends LeData {
@@ -29,8 +30,7 @@ public class IntegerData extends LeData {
     @Override
     public void constructLeData(byte[] leValue) throws UnsupportedEncodingException {
         ByteBuffer bb = ByteBuffer.wrap(leValue);
-        byte b = bb.get();
-        this.val = b;
+        this.val = bb.get();
     }
     
     /**
@@ -40,7 +40,7 @@ public class IntegerData extends LeData {
      */
     @Override
     public byte[] createLeValue() throws UnsupportedEncodingException {
-        ByteBuffer bb = ByteBuffer.allocate(1/*Integer.SIZE / Byte.SIZE */);
+        ByteBuffer bb = ByteBuffer.allocate(25/*Integer.SIZE / Byte.SIZE */);
         bb.put((byte) val);
         return bb.array();
     }
